@@ -15,6 +15,7 @@ const PubSubPage = React.lazy(() => import('@/pages/PubSubPage'))
 const MetricsPage = React.lazy(() => import('@/pages/MetricsPage'))
 const SettingsPage = React.lazy(() => import('@/pages/SettingsPage'))
 const UsersPage = React.lazy(() => import('@/pages/UsersPage'))
+const GroupsPage = React.lazy(() => import('@/pages/GroupsPage'))
 
 function LoadingFallback() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
               <Route path="/connections/:id/metrics" element={<MetricsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/groups" element={<GroupsPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

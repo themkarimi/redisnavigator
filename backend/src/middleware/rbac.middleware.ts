@@ -89,6 +89,31 @@ export function requirePermission(...permissions: Permission[]) {
           next();
           return;
         }
+
+        // Check group-based access: find any group the user belongs to that has access to this connection
+        const groupAccess = await prisma.groupConnectionRole.findFirst({
+          where: {
+            connectionId,
+            group: {
+              members: {
+                some: { userId: req.user.userId },
+              },
+            },
+          },
+        });
+
+        if (groupAccess) {
+          const effectiveGroupPermissions = ROLE_PERMISSIONS[groupAccess.role];
+          const hasAllGroupPermissions = permissions.every(p => effectiveGroupPermissions.includes(p));
+          if (hasAllGroupPermissions) {
+            req.connectionRole = { role: groupAccess.role, permissions: effectiveGroupPermissions };
+            next();
+            return;
+          }
+          res.status(403).json({ error: 'Insufficient permissions' });
+          return;
+        }
+
         res.status(403).json({ error: 'No access to this connection' });
         return;
       }
