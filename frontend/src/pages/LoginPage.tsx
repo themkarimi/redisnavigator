@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -13,6 +13,9 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+const OIDC_ENABLED = import.meta.env.VITE_OIDC_ENABLED === 'true'
+
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -22,8 +25,15 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const setAuth = useAuthStore((s) => s.setAuth)
-  const [apiError, setApiError] = useState<string | null>(null)
+  const [apiError, setApiError] = useState<string | null>(() => {
+    const err = searchParams.get('error')
+    if (err === 'oidc_failed') return 'OIDC login failed. Please try again.'
+    if (err === 'oidc_no_email') return 'OIDC provider did not return an email address.'
+    if (err === 'account_inactive') return 'Your account is inactive.'
+    return null
+  })
 
   const {
     register,
@@ -131,6 +141,27 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
+
+            {OIDC_ENABLED && (
+              <>
+                <div className="relative my-5">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-700" />
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-gray-900 px-2 text-gray-500">or</span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-gray-700 text-gray-200 hover:bg-gray-800"
+                  onClick={() => { window.location.href = `${BASE_URL}/api/auth/oidc` }}
+                >
+                  Sign in with SSO
+                </Button>
+              </>
+            )}
 
             <p className="text-center text-sm text-gray-500 mt-6">
               Don&apos;t have an account?{' '}
