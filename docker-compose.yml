@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: redis-gui-postgres
+    environment:
+      POSTGRES_USER: redisgui
+      POSTGRES_PASSWORD: redisgui_secret
+      POSTGRES_DB: redisgui_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U redisgui"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis-sample:
+    image: redis:7-alpine
+    container_name: redis-gui-sample
+    command: redis-server --requirepass samplepassword --loglevel verbose
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_sample_data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: redis-gui-backend
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://redisgui:redisgui_secret@postgres:5432/redisgui_db
+      JWT_ACCESS_SECRET: change_me_access_secret_very_long_string_here
+      JWT_REFRESH_SECRET: change_me_refresh_secret_very_long_string_here
+      ENCRYPTION_KEY: change_me_32_char_encryption_key!
+      REDIS_BLACKLIST_URL: redis://redis-sample:6379
+      REDIS_BLACKLIST_PASSWORD: samplepassword
+      PORT: 4000
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-sample:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: redis-gui-frontend
+    environment:
+      VITE_API_URL: http://localhost:4000
+      VITE_WS_URL: ws://localhost:4000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_sample_data:
