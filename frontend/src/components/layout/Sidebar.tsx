@@ -7,6 +7,7 @@ import {
   Server,
   Settings,
   Users,
+  UsersRound,
   LogOut,
   Moon,
   Sun,
@@ -53,9 +54,7 @@ export function Sidebar() {
   const theme = useThemeStore((s) => s.theme)
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
 
-  // The user object may carry a role property from the API even if not typed
-  const userRole = (user as unknown as { role?: string })?.role
-  const canManageUsers = userRole === 'SUPERADMIN' || userRole === 'ADMIN'
+  const canManageUsers = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN'
 
   const activeId = connectionId ?? activeConnectionId
 
@@ -221,6 +220,23 @@ export function Sidebar() {
           >
             <Users className="h-4 w-4" />
             <span>Users</span>
+          </NavLink>
+        )}
+
+        {canManageUsers && (
+          <NavLink
+            to="/groups"
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                isActive
+                  ? 'bg-red-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              )
+            }
+          >
+            <UsersRound className="h-4 w-4" />
+            <span>Groups</span>
           </NavLink>
         )}
 

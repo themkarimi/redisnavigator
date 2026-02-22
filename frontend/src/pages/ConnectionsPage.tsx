@@ -21,6 +21,7 @@ import {
   useTestExistingConnection,
 } from '@/hooks/useConnections'
 import { useConnectionStore } from '@/store/connectionStore'
+import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -96,6 +97,10 @@ export default function ConnectionsPage() {
 
   // Global connection store
   const { activeConnectionId, setActiveConnection } = useConnectionStore()
+
+  // Check if the current user can create/edit connections
+  const user = useAuthStore((s) => s.user)
+  const canManageConnections = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -217,10 +222,12 @@ export default function ConnectionsPage() {
             Manage your Redis server connections
           </p>
         </div>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Connection
-        </Button>
+        {canManageConnections && (
+          <Button onClick={handleOpenCreate}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Connection
+          </Button>
+        )}
       </div>
 
       {/* Connection Grid */}
@@ -239,10 +246,12 @@ export default function ConnectionsPage() {
           <p className="text-muted-foreground text-sm mb-6 max-w-xs">
             Add your first Redis connection to start browsing keys and running commands.
           </p>
-          <Button onClick={handleOpenCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Connection
-          </Button>
+          {canManageConnections && (
+            <Button onClick={handleOpenCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Connection
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -341,24 +350,28 @@ export default function ConnectionsPage() {
                         <TestTube className="w-3.5 h-3.5" />
                       )}
                     </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9"
-                      title="Edit connection"
-                      onClick={() => handleOpenEdit(conn)}
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                      title="Delete connection"
-                      onClick={() => setDeleteId(conn.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    {canManageConnections && (
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9"
+                        title="Edit connection"
+                        onClick={() => handleOpenEdit(conn)}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    {canManageConnections && (
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        title="Delete connection"
+                        onClick={() => setDeleteId(conn.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
