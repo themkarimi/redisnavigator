@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '@/services/api'
 import { useConnectionStore } from '@/store/connectionStore'
-import { useToast } from '@/hooks/useToast'
+import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------
