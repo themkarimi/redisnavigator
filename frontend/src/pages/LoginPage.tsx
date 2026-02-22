@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { isAxiosError } from 'axios'
+import { useQuery } from '@tanstack/react-query'
 import { Circle, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { api } from '@/services/api'
@@ -14,7 +15,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
-const OIDC_ENABLED = import.meta.env.VITE_OIDC_ENABLED === 'true'
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
@@ -27,6 +27,16 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const setAuth = useAuthStore((s) => s.setAuth)
+
+  const { data: authConfig } = useQuery({
+    queryKey: ['auth-config'],
+    queryFn: async () => {
+      const { data } = await api.get<{ oidcEnabled: boolean }>('/auth/config')
+      return data
+    },
+    staleTime: Infinity,
+  })
+  const oidcEnabled = authConfig?.oidcEnabled ?? false
   const [apiError, setApiError] = useState<string | null>(() => {
     const err = searchParams.get('error')
     if (err === 'oidc_failed') return 'OIDC login failed. Please try again.'
@@ -142,7 +152,7 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {OIDC_ENABLED && (
+            {oidcEnabled && (
               <>
                 <div className="relative my-5">
                   <div className="absolute inset-0 flex items-center">
