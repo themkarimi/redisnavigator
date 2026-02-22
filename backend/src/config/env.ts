@@ -14,4 +14,9 @@ export const env = {
   REDIS_BLACKLIST_PASSWORD: process.env.REDIS_BLACKLIST_PASSWORD || undefined,
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   BCRYPT_ROUNDS: 12,
+  OIDC_ENABLED: process.env.OIDC_ENABLED === 'true',
+  OIDC_ISSUER_URL: process.env.OIDC_ISSUER_URL || '',
+  OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID || '',
+  OIDC_CLIENT_SECRET: process.env.OIDC_CLIENT_SECRET || '',
+  OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI || 'http://localhost:4000/api/auth/oidc/callback',
 };
