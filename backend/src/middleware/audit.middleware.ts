@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { AuditAction } from '@prisma/client';
+import { Prisma, AuditAction } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { AuthenticatedRequest } from '../types';
 
@@ -15,7 +15,7 @@ export function auditLog(action: AuditAction) {
             connectionId: connectionId || null,
             action,
             resourceKey: req.params.key || (req.body as { key?: string })?.key,
-            details: req.body as Record<string, unknown>,
+            details: req.body as unknown as Prisma.InputJsonValue,
             ipAddress: req.ip,
             userAgent: req.headers['user-agent'],
           },

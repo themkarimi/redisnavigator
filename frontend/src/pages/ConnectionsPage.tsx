@@ -18,6 +18,7 @@ import {
   useUpdateConnection,
   useDeleteConnection,
   useTestConnection,
+  useTestExistingConnection,
 } from '@/hooks/useConnections'
 import { useConnectionStore } from '@/store/connectionStore'
 import { Button } from '@/components/ui/button'
@@ -91,6 +92,7 @@ export default function ConnectionsPage() {
   const updateConnection = useUpdateConnection()
   const deleteConnection = useDeleteConnection()
   const testConnection = useTestConnection()
+  const testExistingConnection = useTestExistingConnection()
 
   // Global connection store
   const { activeConnectionId, setActiveConnection } = useConnectionStore()
@@ -174,14 +176,7 @@ export default function ConnectionsPage() {
   const handleTestExisting = async (conn: RedisConnection) => {
     setTestingId(conn.id)
     try {
-      const result = await testConnection.mutateAsync({
-        host: conn.host,
-        port: conn.port,
-        username: conn.username,
-        useTLS: conn.useTLS,
-        mode: conn.mode,
-        sentinelMaster: conn.sentinelMaster,
-      })
+      const result = await testExistingConnection.mutateAsync(conn.id)
       if (result.success) {
         setTestResults((r) => ({ ...r, [conn.id]: 'success' }))
         toast({
