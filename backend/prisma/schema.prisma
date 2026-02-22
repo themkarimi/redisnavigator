@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum Permission {
+  READ_KEY
+  WRITE_KEY
+  DELETE_KEY
+  MANAGE_CONNECTION
+  MANAGE_USERS
+}
+
+enum ConnectionMode {
+  STANDALONE
+  SENTINEL
+  CLUSTER
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE_CONNECTION
+  UPDATE_CONNECTION
+  DELETE_CONNECTION
+  READ_KEY
+  WRITE_KEY
+  DELETE_KEY
+  EXECUTE_CLI
+  INVITE_USER
+  UPDATE_USER_ROLE
+  DELETE_USER
+  EXPORT_CONNECTIONS
+  IMPORT_CONNECTIONS
+}
+
+model User {
+  id                String               @id @default(cuid())
+  email             String               @unique
+  password          String
+  name              String
+  isActive          Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  refreshTokens     RefreshToken[]
+  connectionRoles   UserConnectionRole[]
+  ownedConnections  RedisConnection[]    @relation("ConnectionOwner")
+  auditLogs         AuditLog[]
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  isRevoked   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model RedisConnection {
+  id              String             @id @default(cuid())
+  name            String
+  host            String
+  port            Int                @default(6379)
+  passwordEnc     String?
+  username        String?
+  useTLS          Boolean            @default(false)
+  mode            ConnectionMode     @default(STANDALONE)
+  sentinelMaster  String?
+  tags            String[]
+  ownerId         String
+  owner           User               @relation("ConnectionOwner", fields: [ownerId], references: [id])
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  userRoles       UserConnectionRole[]
+  auditLogs       AuditLog[]
+
+  @@index([ownerId])
+}
+
+model UserConnectionRole {
+  id           String          @id @default(cuid())
+  userId       String
+  connectionId String
+  role         UserRole
+  permissions  Permission[]
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection   RedisConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([userId, connectionId])
+  @@index([userId])
+  @@index([connectionId])
+}
+
+model AuditLog {
+  id           String          @id @default(cuid())
+  userId       String
+  connectionId String?
+  action       AuditAction
+  resourceKey  String?
+  details      Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime        @default(now())
+
+  user         User            @relation(fields: [userId], references: [id])
+  connection   RedisConnection? @relation(fields: [connectionId], references: [id])
+
+  @@index([userId])
+  @@index([connectionId])
+  @@index([createdAt])
+}
