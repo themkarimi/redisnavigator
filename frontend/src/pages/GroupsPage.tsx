@@ -464,7 +464,7 @@ export default function GroupsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Group Management</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Organise users into groups and grant them shared access to Redis connections.
+            Organize users into groups and grant them shared access to Redis connections.
           </p>
         </div>
         <CreateGroupDialog />

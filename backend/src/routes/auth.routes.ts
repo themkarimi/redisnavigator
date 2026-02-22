@@ -252,7 +252,7 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Re
   }
 });
 
-router.get('/me', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/me', authLimiter, authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.userId, isActive: true },

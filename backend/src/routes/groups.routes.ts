@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/rbac.middleware';
@@ -9,6 +10,13 @@ import { AuditAction, Permission, UserRole } from '@prisma/client';
 
 const router = Router();
 
+const groupsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later' },
+});
+
+router.use(groupsLimiter);
 router.use(authMiddleware);
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
