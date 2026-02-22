@@ -10,9 +10,13 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
+    "prisma:seed": "ts-node --skip-project --compiler-options '{\"module\":\"commonjs\",\"esModuleInterop\":true}' prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch"
+  },
+  "prisma": {
+    "seed": "npm run prisma:seed"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

@@ -17,13 +17,15 @@ const connectionSchema = z.object({
   name: z.string().min(1).max(100),
   host: z.string().min(1),
   port: z.number().int().min(1).max(65535).default(6379),
-  password: z.string().optional(),
-  username: z.string().optional(),
+  password: z.string().nullish(),
+  username: z.string().nullish(),
   useTLS: z.boolean().default(false),
   mode: z.enum(['STANDALONE', 'SENTINEL', 'CLUSTER']).default('STANDALONE'),
-  sentinelMaster: z.string().optional(),
+  sentinelMaster: z.string().nullish(),
   tags: z.array(z.string()).default([]),
 });
+
+const testConnectionSchema = connectionSchema.omit({ name: true, tags: true });
 
 router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -161,7 +163,7 @@ router.delete(
 
 router.post('/test', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const data = connectionSchema.parse(req.body);
+    const data = testConnectionSchema.parse(req.body);
     const result = await testConnection({
       host: data.host,
       port: data.port,

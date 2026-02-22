@@ -63,3 +63,12 @@ export function useTestConnection() {
     },
   });
 }
+
+export function useTestExistingConnection() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data: result } = await api.post(`/connections/${id}/test`);
+      return result as { success: boolean; latency?: number; error?: string };
+    },
+  });
+}

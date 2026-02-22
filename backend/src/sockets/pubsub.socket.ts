@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import Redis from 'ioredis';
+import Redis, { RedisOptions } from 'ioredis';
 import { prisma } from '../config/prisma';
 import { verifyAccessToken } from '../utils/jwt';
 import { decrypt } from '../utils/encryption';
@@ -44,7 +44,7 @@ export function setupPubSubSocket(io: Server): void {
         if (connection.passwordEnc) options.password = decrypt(connection.passwordEnc);
         if (connection.useTLS) options.tls = {};
 
-        const subscriber = new Redis(options as Parameters<typeof Redis>[0]);
+        const subscriber = new Redis(options as RedisOptions);
         await subscriber.connect();
         subscriberMap.set(subKey, subscriber);
 
@@ -86,7 +86,7 @@ export function setupPubSubSocket(io: Server): void {
         const options: Record<string, unknown> = { host: connection.host, port: connection.port };
         if (connection.passwordEnc) options.password = decrypt(connection.passwordEnc);
 
-        const publisher = new Redis(options as Parameters<typeof Redis>[0]);
+        const publisher = new Redis(options as RedisOptions);
         const receivers = await publisher.publish(channel, message);
         publisher.disconnect();
         socket.emit('published', { channel, message, receivers });

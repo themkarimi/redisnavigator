@@ -16,7 +16,7 @@ jest.mock('../config/prisma', () => ({
   },
 }));
 
-const mockPrisma = prismaModule.prisma as {
+const mockPrisma = prismaModule.prisma as unknown as {
   userConnectionRole: {
     findFirst: jest.Mock;
     findUnique: jest.Mock;

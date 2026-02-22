@@ -35,17 +35,17 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://redisgui:redisgui_secret@postgres:5432/redisgui_db
-      JWT_ACCESS_SECRET: change_me_access_secret_very_long_string_here
-      JWT_REFRESH_SECRET: change_me_refresh_secret_very_long_string_here
-      ENCRYPTION_KEY: change_me_32_char_encryption_key!
+      JWT_ACCESS_SECRET: f0508aa7d4ce58703cc6ed3ae400a40b1bace075cde5685cf3ad7d2ee3e50b57
+      JWT_REFRESH_SECRET: f65e189cf67c0cbf62603d9b0b4c44eb24e2781ba52f7b221963f47bc502c327
+      ENCRYPTION_KEY: 9a08b1641705eba6b2bfb1295430c5bf37a3811d9eae238956c76b9c4039e3ec
       REDIS_BLACKLIST_URL: redis://redis-sample:6379
       REDIS_BLACKLIST_PASSWORD: samplepassword
       PORT: 4000
       FRONTEND_URL: http://localhost:3000
       OIDC_ENABLED: "false"
-      OIDC_ISSUER_URL: ""
-      OIDC_CLIENT_ID: ""
-      OIDC_CLIENT_SECRET: ""
+      OIDC_ISSUER_URL: "https://iam.khadg.com"
+      OIDC_CLIENT_ID: "redisgui"
+      OIDC_CLIENT_SECRET: "9a08b1641705eba6b2bfb1295430c5bf37a381"
       OIDC_REDIRECT_URI: http://localhost:4000/api/auth/oidc/callback
     ports:
       - "4000:4000"
@@ -64,7 +64,7 @@ services:
       VITE_API_URL: http://localhost:4000
       VITE_WS_URL: ws://localhost:4000
     ports:
-      - "3000:3000"
+      - "3000:80"
     depends_on:
       - backend
 
