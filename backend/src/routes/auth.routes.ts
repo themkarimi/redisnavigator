@@ -21,6 +21,12 @@ const authLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
 });
 
+// Public config endpoint — lets the frontend know which login methods are available
+// without requiring a build-time env var baked into the static bundle.
+router.get('/config', (_req: Request, res: Response): void => {
+  res.json({ oidcEnabled: !!env.OIDC_ENABLED });
+});
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(100),
