@@ -1,11 +1,17 @@
+import { useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { api } from '@/services/api'
+import { isAxiosError } from 'axios'
+import { Loader2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user)
@@ -13,6 +19,13 @@ export default function SettingsPage() {
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
   const scanCount = useSettingsStore((s) => s.scanCount)
   const setScanCount = useSettingsStore((s) => s.setScanCount)
+
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -122,11 +135,115 @@ export default function SettingsPage() {
                   className="bg-muted cursor-not-allowed"
                 />
               </div>
-              <p className="text-xs text-muted-foreground pt-1">
-                Profile editing is not available in this version.
-              </p>
             </CardContent>
           </Card>
+
+          {user?.hasPassword && (
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Change Password</CardTitle>
+                <CardDescription>Update your account password.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  className="space-y-4"
+                  onSubmit={async (e) => {
+                    e.preventDefault()
+                    setPasswordError(null)
+                    setPasswordSuccess(null)
+
+                    if (newPassword !== confirmPassword) {
+                      setPasswordError('New passwords do not match.')
+                      return
+                    }
+                    if (newPassword.length < 8) {
+                      setPasswordError('New password must be at least 8 characters.')
+                      return
+                    }
+
+                    setPasswordLoading(true)
+                    try {
+                      await api.post('/auth/change-password', {
+                        currentPassword,
+                        newPassword,
+                      })
+                      setPasswordSuccess('Password changed successfully.')
+                      setCurrentPassword('')
+                      setNewPassword('')
+                      setConfirmPassword('')
+                    } catch (err) {
+                      if (isAxiosError(err)) {
+                        const msg = err.response?.data?.error ?? 'Failed to change password.'
+                        setPasswordError(String(msg))
+                      } else {
+                        setPasswordError('An unexpected error occurred.')
+                      }
+                    } finally {
+                      setPasswordLoading(false)
+                    }
+                  }}
+                >
+                  {passwordError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{passwordError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {passwordSuccess && (
+                    <Alert>
+                      <AlertDescription>{passwordSuccess}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="current-password">Current Password</Label>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      placeholder="Minimum 8 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={8}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirm-password">Confirm New Password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={8}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {passwordLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Changing…
+                      </>
+                    ) : (
+                      'Change Password'
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* About tab */}
