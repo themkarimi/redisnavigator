@@ -12,12 +12,12 @@ import { env } from '../config/env';
 const router = Router();
 router.use(authMiddleware);
 
-const inviteSchema = z.object({
+const createUserSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1),
   password: z.string().min(8),
-  connectionId: z.string(),
-  role: z.nativeEnum(UserRole),
+  connectionId: z.string().optional(),
+  role: z.nativeEnum(UserRole).optional(),
 });
 
 const updateRoleSchema = z.object({
@@ -43,13 +43,9 @@ router.get('/', requireRole(UserRole.ADMIN, UserRole.SUPERADMIN), async (req: Au
   }
 });
 
-router.post(
-  '/invite',
-  requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
-  auditLog(AuditAction.INVITE_USER),
-  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+async function createUserHandler(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const data = inviteSchema.parse(req.body);
+      const data = createUserSchema.parse(req.body);
 
       const existing = await prisma.user.findUnique({ where: { email: data.email } });
       if (existing) {
@@ -63,18 +59,20 @@ router.post(
         const newUser = await tx.user.create({
           data: { email: data.email, password: hashed, name: data.name },
         });
-        await tx.userConnectionRole.create({
-          data: {
-            userId: newUser.id,
-            connectionId: data.connectionId,
-            role: data.role,
-            permissions: data.role === UserRole.VIEWER
-              ? [Permission.READ_KEY]
-              : data.role === UserRole.OPERATOR
-              ? [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY]
-              : [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY, Permission.MANAGE_CONNECTION, Permission.MANAGE_USERS],
-          },
-        });
+        if (data.connectionId && data.role) {
+          await tx.userConnectionRole.create({
+            data: {
+              userId: newUser.id,
+              connectionId: data.connectionId,
+              role: data.role,
+              permissions: data.role === UserRole.VIEWER
+                ? [Permission.READ_KEY]
+                : data.role === UserRole.OPERATOR
+                ? [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY]
+                : [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY, Permission.MANAGE_CONNECTION, Permission.MANAGE_USERS],
+            },
+          });
+        }
         return newUser;
       });
 
@@ -84,6 +82,19 @@ router.post(
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+
+router.post(
+  '/create',
+  requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  auditLog(AuditAction.CREATE_USER),
+  createUserHandler
+);
+
+router.post(
+  '/invite',
+  requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  auditLog(AuditAction.INVITE_USER),
+  createUserHandler
 );
 
 router.patch(
