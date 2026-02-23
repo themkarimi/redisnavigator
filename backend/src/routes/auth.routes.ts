@@ -160,7 +160,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
     const role = await getUserHighestRole(user.id);
     res.json({
       accessToken,
-      user: { id: user.id, email: user.email, name: user.name, role },
+      user: { id: user.id, email: user.email, name: user.name, role, hasPassword: !!user.password },
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -259,15 +259,63 @@ router.get('/me', authLimiter, authMiddleware, async (req: AuthenticatedRequest,
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.userId, isActive: true },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, password: true },
     });
     if (!user) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
     const role = await getUserHighestRole(user.id);
-    res.json({ ...user, role });
+    res.json({ id: user.id, email: user.email, name: user.name, role, hasPassword: !!user.password });
   } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).max(100),
+});
+
+router.post('/change-password', authLimiter, authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const data = changePasswordSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId, isActive: true } });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (!user.password) {
+      res.status(400).json({ error: 'Password change is not available for SSO accounts' });
+      return;
+    }
+
+    const isValid = await bcrypt.compare(data.currentPassword, user.password);
+    if (!isValid) {
+      res.status(401).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(data.newPassword, env.BCRYPT_ROUNDS);
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword } });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: AuditAction.CHANGE_PASSWORD,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -391,7 +439,7 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    const userParam = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, name: user.name, role: await getUserHighestRole(user.id) }));
+    const userParam = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, name: user.name, role: await getUserHighestRole(user.id), hasPassword: !!user.password }));
     res.redirect(`${env.FRONTEND_URL}/oidc/callback#access_token=${accessToken}&user=${userParam}`);
   } catch (err) {
     logger.error('OIDC callback failed:', err);
