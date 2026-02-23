@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, RefreshCw, Trash2, Plus, Save, Key } from 'lucide-react'
+import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/services/api'
 import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
+import { useSettingsStore } from '@/store/settingsStore'
 
 // ─── Type badge ──────────────────────────────────────────────────────────────
 
@@ -825,12 +826,20 @@ function KeyDetailPanel({ connectionId, keyName, db, onDeleted }: KeyDetailPanel
 export default function KeyBrowserPage() {
   const { id: connectionId = '' } = useParams<{ id: string }>()
   const { toast } = useToast()
-  const qc = useQueryClient()
+  const scanCount = useSettingsStore((s) => s.scanCount)
 
   const [searchInput, setSearchInput]   = useState('*')
   const [pattern, setPattern]           = useState('*')
   const [selectedKey, setSelectedKey]   = useState<string | null>(null)
   const [db, setDb]                     = useState(0)
+
+  const [keys, setKeys]                     = useState<RedisKey[]>([])
+  const [scanCursor, setScanCursor]         = useState('0')
+  const [hasMore, setHasMore]               = useState(false)
+  const [isLoading, setIsLoading]           = useState(false)
+  const [isError, setIsError]               = useState(false)
+  const [isScanningMore, setIsScanningMore] = useState(false)
+  const [reloadTrigger, setReloadTrigger]   = useState(0)
 
   // Debounce — also allow explicit search on Enter
   useEffect(() => {
@@ -838,24 +847,58 @@ export default function KeyBrowserPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
-  const keysQuery = useQuery<{ keys: RedisKey[] }>({
-    queryKey: ['keys', connectionId, { pattern, db }],
-    queryFn: async () => {
-      const { data } = await api.get<{ keys: RedisKey[] }>(
-        `/connections/${connectionId}/keys`,
-        { params: { pattern, db } },
-      )
-      return data
-    },
-    enabled: !!connectionId,
-  })
-
-  const keys: RedisKey[] = keysQuery.data?.keys ?? []
+  // Load keys from scratch when connectionId, pattern, db, scanCount, or reloadTrigger changes
+  useEffect(() => {
+    if (!connectionId) return
+    let cancelled = false
+    setIsLoading(true)
+    setIsError(false)
+    setKeys([])
+    setScanCursor('0')
+    setHasMore(false)
+    api.get<{ keys: RedisKey[]; cursor: string }>(
+      `/connections/${connectionId}/keys`,
+      { params: { pattern, db, count: scanCount, cursor: '0' } },
+    ).then(({ data }) => {
+      if (!cancelled) {
+        setKeys(data.keys)
+        setScanCursor(data.cursor)
+        setHasMore(data.cursor !== '0')
+        setIsLoading(false)
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setIsError(true)
+        setIsLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [connectionId, pattern, db, scanCount, reloadTrigger])
 
   const handleRefresh = useCallback(() => {
-    keysQuery.refetch()
+    setReloadTrigger((n) => n + 1)
     toast({ title: 'Refreshed', description: 'Key list reloaded.' })
-  }, [keysQuery, toast])
+  }, [toast])
+
+  const handleScanMore = useCallback(() => {
+    setIsScanningMore(true)
+    api.get<{ keys: RedisKey[]; cursor: string }>(
+      `/connections/${connectionId}/keys`,
+      { params: { pattern, db, count: scanCount, cursor: scanCursor } },
+    ).then(({ data }) => {
+      setKeys((prev) => {
+        const existing = new Set(prev.map((k) => k.key))
+        const newKeys = data.keys.filter((k) => !existing.has(k.key))
+        return [...prev, ...newKeys]
+      })
+      setScanCursor(data.cursor)
+      setHasMore(data.cursor !== '0')
+      setIsScanningMore(false)
+    }).catch(() => {
+      toast({ title: 'Error', description: 'Failed to scan more keys.', variant: 'destructive' })
+      setIsScanningMore(false)
+    })
+  }, [connectionId, pattern, db, scanCount, scanCursor, toast])
 
   const handleSelectKey = useCallback((key: string) => setSelectedKey(key), [])
 
@@ -866,8 +909,8 @@ export default function KeyBrowserPage() {
 
   const handleKeyDeleted = useCallback(() => {
     setSelectedKey(null)
-    qc.invalidateQueries({ queryKey: ['keys', connectionId] })
-  }, [connectionId, qc])
+    setReloadTrigger((n) => n + 1)
+  }, [])
 
   if (!connectionId) {
     return (
@@ -914,16 +957,16 @@ export default function KeyBrowserPage() {
               size="sm"
               className="h-8 px-2.5 shrink-0"
               onClick={handleRefresh}
-              disabled={keysQuery.isFetching}
+              disabled={isLoading}
               title="Refresh"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${keysQuery.isFetching ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
 
           {/* Key count */}
           <p className="text-xs text-muted-foreground pl-0.5">
-            {keysQuery.isLoading
+            {isLoading
               ? 'Loading…'
               : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
           </p>
@@ -931,10 +974,10 @@ export default function KeyBrowserPage() {
 
         {/* Keys */}
         <ScrollArea className="flex-1">
-          {keysQuery.isError && (
+          {isError && (
             <p className="text-xs text-destructive px-3 py-4 text-center">Failed to load keys.</p>
           )}
-          {!keysQuery.isLoading && !keysQuery.isError && keys.length === 0 && (
+          {!isLoading && !isError && keys.length === 0 && (
             <div className="flex flex-col items-center justify-center py-14 gap-2 text-muted-foreground">
               <Key className="w-8 h-8 opacity-30" />
               <p className="text-xs text-center px-4">
@@ -958,6 +1001,20 @@ export default function KeyBrowserPage() {
               </button>
             ))}
           </div>
+          {hasMore && (
+            <div className="px-3 py-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full h-7 text-xs"
+                onClick={handleScanMore}
+                disabled={isScanningMore}
+              >
+                <ChevronDown className={`w-3.5 h-3.5 mr-1.5 ${isScanningMore ? 'animate-bounce' : ''}`} />
+                {isScanningMore ? 'Scanning…' : 'Scan More'}
+              </Button>
+            </div>
+          )}
         </ScrollArea>
       </div>
 

@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requirePermission } from '../middleware/rbac.middleware';
@@ -10,6 +11,12 @@ import { AuditAction, Permission } from '@prisma/client';
 import { Redis } from 'ioredis';
 
 const router = Router({ mergeParams: true });
+
+const keysLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { error: 'Too many requests, please try again later' },
+});
 
 router.use(authMiddleware);
 
@@ -23,6 +30,7 @@ async function getConnection(connectionId: string): Promise<import('@prisma/clie
 
 router.get(
   '/',
+  keysLimiter,
   requirePermission(Permission.READ_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
@@ -32,30 +40,20 @@ router.get(
       const { pattern = '*', type, cursor: cursorParam = '0', count = '100' } = req.query as Record<string, string>;
       const client = await getRedisClient(connection, parseDb(req));
 
-      let cursor = cursorParam;
       const keys: string[] = [];
-      let nextCursor = '0';
+      const [nextCursor, batch] = await client.scan(cursorParam, 'MATCH', pattern, 'COUNT', parseInt(count, 10));
 
-      do {
-        const args: [string, string, string, string] = [cursor, 'MATCH', pattern, 'COUNT'];
-        const [newCursor, batch] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', parseInt(count, 10));
-        nextCursor = newCursor;
-        cursor = newCursor;
-
-        if (type) {
-          for (const key of batch) {
-            const keyType = await client.type(key);
-            if (keyType === type) keys.push(key);
-          }
-        } else {
-          keys.push(...batch);
+      if (type) {
+        for (const key of batch) {
+          const keyType = await client.type(key);
+          if (keyType === type) keys.push(key);
         }
-
-        if (keys.length >= parseInt(count, 10)) break;
-      } while (cursor !== '0');
+      } else {
+        keys.push(...batch);
+      }
 
       const keyDetails = await Promise.all(
-        keys.slice(0, parseInt(count, 10)).map(async (key) => {
+        keys.map(async (key) => {
           const [keyType, ttl] = await Promise.all([
             client.type(key),
             client.ttl(key),
