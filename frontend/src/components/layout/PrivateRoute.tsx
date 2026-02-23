@@ -18,6 +18,10 @@ export function PrivateRoute() {
     const unsub = useAuthStore.persist.onFinishHydration(() => {
       setHasHydrated(true)
     })
+    // Handle case where hydration completed before listener was set up
+    if (useAuthStore.persist.hasHydrated()) {
+      setHasHydrated(true)
+    }
     return unsub
   }, [])
 
@@ -40,6 +44,10 @@ export function PrivateRoute() {
         setIsRefreshing(false)
         refreshingRef.current = false
       })
+
+    return () => {
+      refreshingRef.current = false
+    }
   }, [hasHydrated, isAuthenticated, accessToken, setAccessToken, logout])
 
   if (!hasHydrated || isRefreshing) return null
