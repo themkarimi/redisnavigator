@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   role?: UserRole | null;
+  hasPassword?: boolean;
 }
 
 export interface AuthState {
