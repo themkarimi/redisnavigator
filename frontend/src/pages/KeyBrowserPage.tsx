@@ -1013,7 +1013,7 @@ export default function KeyBrowserPage() {
                 title={`Delete all keys matching "${pattern}"`}
               >
                 <Trash2 className="w-3 h-3 mr-1" />
-                Delete by Pattern
+                Delete Keys
               </Button>
             )}
           </div>
