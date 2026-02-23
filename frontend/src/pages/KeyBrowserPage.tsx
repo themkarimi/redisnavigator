@@ -840,6 +840,7 @@ export default function KeyBrowserPage() {
   const [isError, setIsError]               = useState(false)
   const [isScanningMore, setIsScanningMore] = useState(false)
   const [reloadTrigger, setReloadTrigger]   = useState(0)
+  const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
 
   // Debounce — also allow explicit search on Enter
   useEffect(() => {
@@ -912,6 +913,31 @@ export default function KeyBrowserPage() {
     setReloadTrigger((n) => n + 1)
   }, [])
 
+  const handleDeleteByPattern = useCallback(() => {
+    if (!pattern || pattern === '*') {
+      const confirmed = window.confirm(
+        'This will delete ALL keys in the selected database. Are you sure?'
+      )
+      if (!confirmed) return
+    } else {
+      const confirmed = window.confirm(
+        `Delete all keys matching "${pattern}"?`
+      )
+      if (!confirmed) return
+    }
+    setIsDeletingByPattern(true)
+    api.post(`/connections/${connectionId}/keys/delete-by-pattern`, { pattern }, { params: { db } })
+      .then(({ data }) => {
+        toast({ title: 'Deleted', description: data.message })
+        setSelectedKey(null)
+        setReloadTrigger((n) => n + 1)
+      })
+      .catch(() => {
+        toast({ title: 'Error', description: 'Failed to delete keys by pattern.', variant: 'destructive' })
+      })
+      .finally(() => setIsDeletingByPattern(false))
+  }, [connectionId, pattern, db, toast])
+
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -964,12 +990,27 @@ export default function KeyBrowserPage() {
             </Button>
           </div>
 
-          {/* Key count */}
-          <p className="text-xs text-muted-foreground pl-0.5">
-            {isLoading
-              ? 'Loading…'
-              : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
-          </p>
+          {/* Key count and delete by pattern */}
+          <div className="flex items-center justify-between pl-0.5">
+            <p className="text-xs text-muted-foreground">
+              {isLoading
+                ? 'Loading…'
+                : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
+            </p>
+            {!isLoading && keys.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                onClick={handleDeleteByPattern}
+                disabled={isDeletingByPattern}
+                title={`Delete all keys matching "${pattern}"`}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete by Pattern
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Keys */}
