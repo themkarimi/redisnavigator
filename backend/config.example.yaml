@@ -1,0 +1,66 @@
+# redis-gui configuration-as-code example
+#
+# Set the environment variable CONFIG_FILE to the path of this file (or a copy)
+# to have redis-gui automatically create/update connections and groups on every
+# startup.
+#
+# All values that start with ${...} are resolved from environment variables at
+# runtime, which lets you keep secrets out of the YAML file.
+#
+# All sections are optional.  Only the entries you provide are created/updated;
+# nothing is deleted automatically.
+
+# ---------------------------------------------------------------------------
+# connections – Redis instances managed as code
+# ---------------------------------------------------------------------------
+connections:
+  - name: "Production Redis"
+    host: redis-prod.example.com
+    port: 6379
+    # Password can be an environment variable reference:
+    password: "${REDIS_PROD_PASSWORD}"
+    useTLS: true
+    mode: STANDALONE         # STANDALONE | SENTINEL | CLUSTER
+    tags:
+      - production
+
+  - name: "Dev Redis"
+    host: redis-dev.example.com
+    port: 6380
+    mode: STANDALONE
+    tags:
+      - dev
+
+  - name: "Redis Sentinel"
+    host: sentinel.example.com
+    port: 26379
+    password: "${REDIS_SENTINEL_PASSWORD}"
+    mode: SENTINEL
+    sentinelMaster: mymaster
+    tags:
+      - sentinel
+
+# ---------------------------------------------------------------------------
+# groups – logical collections of users that share connection access
+# ---------------------------------------------------------------------------
+groups:
+  - name: "DevOps Team"
+    description: "DevOps engineers with full access to production"
+    members:
+      - email: devops@example.com
+      - email: lead-engineer@example.com
+    permissions:
+      - name: "Production Redis"
+        role: OPERATOR       # SUPERADMIN | ADMIN | OPERATOR | VIEWER
+      - name: "Dev Redis"
+        role: ADMIN
+
+  - name: "Read-Only Team"
+    description: "Analysts with read-only access"
+    members:
+      - email: analyst@example.com
+    permissions:
+      - name: "Production Redis"
+        role: VIEWER
+      - name: "Dev Redis"
+        role: VIEWER
