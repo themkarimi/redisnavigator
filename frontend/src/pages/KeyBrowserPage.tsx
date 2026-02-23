@@ -9,6 +9,22 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import {
   Table,
   TableBody,
   TableCell,
@@ -17,7 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { useDeleteKeysByPattern } from '@/hooks/useKeys'
+import { useDeleteKeysByPattern, useCreateKey } from '@/hooks/useKeys'
 import { api } from '@/services/api'
 import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -822,6 +838,252 @@ function KeyDetailPanel({ connectionId, keyName, db, onDeleted }: KeyDetailPanel
   )
 }
 
+// ─── Add Key Dialog ───────────────────────────────────────────────────────────
+
+type CreatableKeyType = 'string' | 'hash' | 'list' | 'set' | 'zset'
+
+interface AddKeyDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  connectionId: string
+  db: number
+  onCreated: (key: string) => void
+}
+
+function AddKeyDialog({ open, onOpenChange, connectionId, db, onCreated }: AddKeyDialogProps) {
+  const { toast } = useToast()
+  const createKey = useCreateKey()
+
+  const [keyName, setKeyName]     = useState('')
+  const [keyType, setKeyType]     = useState<CreatableKeyType>('string')
+  const [ttl, setTtl]             = useState('')
+
+  // Type-specific value fields
+  const [stringValue, setStringValue]     = useState('')
+  const [hashField, setHashField]         = useState('')
+  const [hashValue, setHashValue]         = useState('')
+  const [listValue, setListValue]         = useState('')
+  const [setMember, setSetMember]         = useState('')
+  const [zsetMember, setZsetMember]       = useState('')
+  const [zsetScore, setZsetScore]         = useState('0')
+
+  const resetForm = useCallback(() => {
+    setKeyName('')
+    setKeyType('string')
+    setTtl('')
+    setStringValue('')
+    setHashField('')
+    setHashValue('')
+    setListValue('')
+    setSetMember('')
+    setZsetMember('')
+    setZsetScore('0')
+  }, [])
+
+  useEffect(() => {
+    if (open) resetForm()
+  }, [open, resetForm])
+
+  const buildValue = (): unknown => {
+    switch (keyType) {
+      case 'string':
+        return stringValue
+      case 'hash':
+        return hashField.trim() ? { [hashField.trim()]: hashValue } : {}
+      case 'list':
+        return listValue.trim() ? [listValue.trim()] : []
+      case 'set':
+        return setMember.trim() ? [setMember.trim()] : []
+      case 'zset': {
+        const score = parseFloat(zsetScore)
+        return zsetMember.trim() ? [{ member: zsetMember.trim(), score: isNaN(score) ? 0 : score }] : []
+      }
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!keyName.trim()) return
+
+    if (keyType === 'zset' && zsetMember.trim() && isNaN(parseFloat(zsetScore))) {
+      toast({ title: 'Invalid Score', description: 'Please enter a valid number for the score.', variant: 'destructive' })
+      return
+    }
+
+    const parsedTtl = ttl ? parseInt(ttl, 10) : undefined
+    if (parsedTtl !== undefined && isNaN(parsedTtl)) return
+
+    createKey.mutate(
+      {
+        connectionId,
+        key: keyName.trim(),
+        type: keyType,
+        value: buildValue(),
+        ttl: parsedTtl && parsedTtl > 0 ? parsedTtl : undefined,
+      },
+      {
+        onSuccess: (data) => {
+          toast({ title: 'Key Created', description: `Key "${data.key}" created successfully.` })
+          onOpenChange(false)
+          onCreated(data.key)
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to create key.', variant: 'destructive' })
+        },
+      },
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Key</DialogTitle>
+          <DialogDescription>Create a new Redis key with the specified type.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          {/* Key name */}
+          <div className="space-y-2">
+            <Label htmlFor="add-key-name">Key Name *</Label>
+            <Input
+              id="add-key-name"
+              placeholder="e.g. user:1001"
+              value={keyName}
+              onChange={(e) => setKeyName(e.target.value)}
+              className="font-mono text-sm"
+              required
+              autoFocus
+            />
+          </div>
+
+          {/* Key type */}
+          <div className="space-y-2">
+            <Label>Type *</Label>
+            <Select value={keyType} onValueChange={(v) => setKeyType(v as CreatableKeyType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="string">String</SelectItem>
+                <SelectItem value="hash">Hash</SelectItem>
+                <SelectItem value="list">List</SelectItem>
+                <SelectItem value="set">Set</SelectItem>
+                <SelectItem value="zset">Sorted Set (ZSet)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Type-specific value input */}
+          {keyType === 'string' && (
+            <div className="space-y-2">
+              <Label htmlFor="add-key-string-value">Value</Label>
+              <Textarea
+                id="add-key-string-value"
+                placeholder="Enter string value"
+                value={stringValue}
+                onChange={(e) => setStringValue(e.target.value)}
+                className="font-mono text-sm min-h-[80px] resize-none"
+              />
+            </div>
+          )}
+
+          {keyType === 'hash' && (
+            <div className="space-y-2">
+              <Label>Initial Field</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Field name"
+                  value={hashField}
+                  onChange={(e) => setHashField(e.target.value)}
+                  className="font-mono text-sm"
+                />
+                <Input
+                  placeholder="Value"
+                  value={hashValue}
+                  onChange={(e) => setHashValue(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          {keyType === 'list' && (
+            <div className="space-y-2">
+              <Label htmlFor="add-key-list-value">Initial Item</Label>
+              <Input
+                id="add-key-list-value"
+                placeholder="Enter list item"
+                value={listValue}
+                onChange={(e) => setListValue(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+          )}
+
+          {keyType === 'set' && (
+            <div className="space-y-2">
+              <Label htmlFor="add-key-set-member">Initial Member</Label>
+              <Input
+                id="add-key-set-member"
+                placeholder="Enter set member"
+                value={setMember}
+                onChange={(e) => setSetMember(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+          )}
+
+          {keyType === 'zset' && (
+            <div className="space-y-2">
+              <Label>Initial Member</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Member"
+                  value={zsetMember}
+                  onChange={(e) => setZsetMember(e.target.value)}
+                  className="font-mono text-sm flex-1"
+                />
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="Score"
+                  value={zsetScore}
+                  onChange={(e) => setZsetScore(e.target.value)}
+                  className="text-sm w-24"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TTL */}
+          <div className="space-y-2">
+            <Label htmlFor="add-key-ttl">TTL (seconds)</Label>
+            <Input
+              id="add-key-ttl"
+              type="number"
+              min="0"
+              placeholder="No expiry"
+              value={ttl}
+              onChange={(e) => setTtl(e.target.value)}
+              className="text-sm"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createKey.isPending || !keyName.trim()}>
+              <Plus className="w-4 h-4 mr-2" />
+              {createKey.isPending ? 'Creating…' : 'Create Key'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function KeyBrowserPage() {
@@ -843,6 +1105,7 @@ export default function KeyBrowserPage() {
   const [isScanningMore, setIsScanningMore] = useState(false)
   const [reloadTrigger, setReloadTrigger]   = useState(0)
   const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
+  const [addKeyOpen, setAddKeyOpen]         = useState(false)
 
   // Debounce — also allow explicit search on Enter
   useEffect(() => {
@@ -913,6 +1176,11 @@ export default function KeyBrowserPage() {
   const handleKeyDeleted = useCallback(() => {
     setSelectedKey(null)
     setReloadTrigger((n) => n + 1)
+  }, [])
+
+  const handleKeyCreated = useCallback((key: string) => {
+    setReloadTrigger((n) => n + 1)
+    setSelectedKey(key)
   }, [])
 
   const handleDeleteByPattern = useCallback(() => {
@@ -993,6 +1261,15 @@ export default function KeyBrowserPage() {
               title="Refresh"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 shrink-0"
+              onClick={() => setAddKeyOpen(true)}
+              title="Add Key"
+            >
+              <Plus className="w-3.5 h-3.5" />
             </Button>
           </div>
 
@@ -1087,6 +1364,15 @@ export default function KeyBrowserPage() {
           </div>
         )}
       </div>
+
+      {/* ── Add Key Dialog ── */}
+      <AddKeyDialog
+        open={addKeyOpen}
+        onOpenChange={setAddKeyOpen}
+        connectionId={connectionId}
+        db={db}
+        onCreated={handleKeyCreated}
+      />
 
     </div>
   )
