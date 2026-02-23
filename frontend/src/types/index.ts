@@ -2,6 +2,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  role?: UserRole | null;
 }
 
 export interface AuthState {
@@ -70,4 +71,31 @@ export interface UserWithRoles {
     role: UserRole;
     connection: { id: string; name: string };
   }>;
+}
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  createdAt: string;
+  user: { id: string; name: string; email: string };
+}
+
+export interface GroupConnectionRole {
+  id: string;
+  groupId: string;
+  connectionId: string;
+  role: UserRole;
+  permissions: string[];
+  connection: { id: string; name: string };
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  members: GroupMember[];
+  connectionRoles: GroupConnectionRole[];
 }

@@ -9,7 +9,7 @@ import { blacklistToken } from '../utils/redisBlacklist';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { AuthenticatedRequest } from '../types';
 import { env } from '../config/env';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, UserRole } from '@prisma/client';
 import { getOidcClient } from '../config/oidc';
 import { logger } from '../config/logger';
 
@@ -20,6 +20,26 @@ const authLimiter = rateLimit({
   max: 20,
   message: { error: 'Too many requests, please try again later' },
 });
+
+// Role priority for determining the "highest" global role
+const ROLE_PRIORITY: Record<UserRole, number> = {
+  SUPERADMIN: 4,
+  ADMIN: 3,
+  OPERATOR: 2,
+  VIEWER: 1,
+};
+
+async function getUserHighestRole(userId: string): Promise<UserRole | null> {
+  const roles = await prisma.userConnectionRole.findMany({
+    where: { userId },
+    select: { role: true },
+  });
+  if (roles.length === 0) return null;
+  return roles.reduce((highest, r) =>
+    ROLE_PRIORITY[r.role] > ROLE_PRIORITY[highest] ? r.role : highest,
+    roles[0].role
+  );
+}
 
 // Public config endpoint — lets the frontend know which login methods are available
 // without requiring a build-time env var baked into the static bundle.
@@ -77,7 +97,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response): Promi
 
     res.status(201).json({
       accessToken,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, role: null },
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -135,9 +155,10 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    const role = await getUserHighestRole(user.id);
     res.json({
       accessToken,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, role },
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -226,6 +247,23 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Re
 
     res.clearCookie('refreshToken');
     res.json({ message: 'Logged out successfully' });
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/me', authLimiter, authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId, isActive: true },
+      select: { id: true, email: true, name: true },
+    });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const role = await getUserHighestRole(user.id);
+    res.json({ ...user, role });
   } catch {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -349,7 +387,7 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    const userParam = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, name: user.name }));
+    const userParam = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, name: user.name, role: await getUserHighestRole(user.id) }));
     res.redirect(`${env.FRONTEND_URL}/oidc/callback#access_token=${accessToken}&user=${userParam}`);
   } catch (err) {
     logger.error('OIDC callback failed:', err);

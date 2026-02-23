@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { requirePermission } from '../middleware/rbac.middleware';
+import { requirePermission, requireRole } from '../middleware/rbac.middleware';
 import { auditLog } from '../middleware/audit.middleware';
 import { encrypt } from '../utils/encryption';
 import { testConnection, getRedisClient, closeConnection } from '../services/redis.service';
@@ -65,6 +65,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
 
 router.post(
   '/',
+  requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
   auditLog(AuditAction.CREATE_CONNECTION),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
