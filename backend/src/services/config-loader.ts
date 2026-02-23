@@ -21,7 +21,7 @@ export interface YamlConnection {
   tags?: string[];
 }
 
-export interface YamlGroupConnection {
+export interface YamlGroupPermission {
   name: string;
   role: UserRole;
 }
@@ -30,19 +30,12 @@ export interface YamlGroup {
   name: string;
   description?: string;
   members?: { email: string }[];
-  connections?: YamlGroupConnection[];
-}
-
-export interface YamlPermission {
-  userEmail: string;
-  connection: string;
-  role: UserRole;
+  permissions?: YamlGroupPermission[];
 }
 
 export interface YamlConfig {
   connections?: YamlConnection[];
   groups?: YamlGroup[];
-  permissions?: YamlPermission[];
 }
 
 // ---------------------------------------------------------------------------
@@ -247,8 +240,8 @@ export async function applyConfig(filePath: string): Promise<void> {
       }
 
       // Connection assignments
-      if (grp.connections?.length) {
-        for (const gc of grp.connections) {
+      if (grp.permissions?.length) {
+        for (const gc of grp.permissions) {
           // Resolve connection ID — prefer connections created above, then DB lookup.
           let connectionId = connectionNameToId.get(gc.name);
           if (!connectionId) {
@@ -275,43 +268,6 @@ export async function applyConfig(filePath: string): Promise<void> {
           logger.info(`config-loader: assigned connection "${gc.name}" to group "${grp.name}" with role ${gc.role}`);
         }
       }
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  // User-level permissions
-  // -------------------------------------------------------------------------
-  if (config.permissions?.length) {
-    for (const perm of config.permissions) {
-      const user = await prisma.user.findUnique({ where: { email: perm.userEmail } });
-      if (!user) {
-        logger.warn(`config-loader: user "${perm.userEmail}" not found, skipping permission assignment`);
-        continue;
-      }
-
-      let connectionId = connectionNameToId.get(perm.connection);
-      if (!connectionId) {
-        const dbConn = await prisma.redisConnection.findFirst({
-          where: { name: perm.connection, isActive: true },
-        });
-        if (!dbConn) {
-          logger.warn(`config-loader: connection "${perm.connection}" not found, skipping permission assignment`);
-          continue;
-        }
-        connectionId = dbConn.id;
-      }
-
-      await prisma.userConnectionRole.upsert({
-        where: { userId_connectionId: { userId: user.id, connectionId } },
-        update: { role: perm.role, permissions: ROLE_PERMISSIONS[perm.role] },
-        create: {
-          userId: user.id,
-          connectionId,
-          role: perm.role,
-          permissions: ROLE_PERMISSIONS[perm.role],
-        },
-      });
-      logger.info(`config-loader: assigned role ${perm.role} on "${perm.connection}" to "${perm.userEmail}"`);
     }
   }
 

@@ -239,7 +239,7 @@ connections:
     const path = writeTempYaml(`
 groups:
   - name: "Ops Team"
-    connections:
+    permissions:
       - name: "Prod Redis"
         role: OPERATOR
 `);
@@ -305,71 +305,6 @@ groups:
       await applyConfig(path);
 
       expect(mockPrisma.groupMember.upsert).not.toHaveBeenCalled();
-    } finally {
-      cleanup(path);
-    }
-  });
-
-  it('assigns a user permission via the permissions section', async () => {
-    const path = writeTempYaml(`
-permissions:
-  - userEmail: alice@example.com
-    connection: "My Redis"
-    role: VIEWER
-`);
-    try {
-      mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'alice-id' });
-      mockPrisma.redisConnection.findFirst.mockResolvedValue({ id: 'my-conn' });
-      mockPrisma.userConnectionRole.upsert.mockResolvedValue({});
-
-      await applyConfig(path);
-
-      expect(mockPrisma.userConnectionRole.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { userId_connectionId: { userId: 'alice-id', connectionId: 'my-conn' } },
-          create: expect.objectContaining({ role: 'VIEWER' }),
-        })
-      );
-    } finally {
-      cleanup(path);
-    }
-  });
-
-  it('skips a permission entry when the user is not in the DB', async () => {
-    const path = writeTempYaml(`
-permissions:
-  - userEmail: unknown@example.com
-    connection: "My Redis"
-    role: VIEWER
-`);
-    try {
-      mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
-      mockPrisma.user.findUnique.mockResolvedValue(null);
-
-      await applyConfig(path);
-
-      expect(mockPrisma.userConnectionRole.upsert).not.toHaveBeenCalled();
-    } finally {
-      cleanup(path);
-    }
-  });
-
-  it('skips a permission entry when the connection is not in the DB', async () => {
-    const path = writeTempYaml(`
-permissions:
-  - userEmail: bob@example.com
-    connection: "Missing Redis"
-    role: OPERATOR
-`);
-    try {
-      mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'bob-id' });
-      mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
-
-      await applyConfig(path);
-
-      expect(mockPrisma.userConnectionRole.upsert).not.toHaveBeenCalled();
     } finally {
       cleanup(path);
     }
