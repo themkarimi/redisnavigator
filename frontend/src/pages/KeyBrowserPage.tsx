@@ -905,7 +905,13 @@ function AddKeyDialog({ open, onOpenChange, connectionId, db, onCreated }: AddKe
     e.preventDefault()
     if (!keyName.trim()) return
 
+    if (keyType === 'zset' && zsetMember.trim() && isNaN(parseFloat(zsetScore))) {
+      toast({ title: 'Invalid Score', description: 'Please enter a valid number for the score.', variant: 'destructive' })
+      return
+    }
+
     const parsedTtl = ttl ? parseInt(ttl, 10) : undefined
+    if (parsedTtl !== undefined && isNaN(parsedTtl)) return
 
     createKey.mutate(
       {
