@@ -88,8 +88,6 @@ npm run dev
 ### Frontend (`frontend/.env.local`)
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_API_URL` | Backend API base URL | `http://localhost:4000` |
-| `VITE_WS_URL` | Backend WebSocket URL | `ws://localhost:4000` |
 | `VITE_OIDC_ENABLED` | Show OIDC login button in the UI | `false` |
 
 ## RBAC Roles

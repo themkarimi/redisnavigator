@@ -24,8 +24,6 @@ interface PubSubMessage {
 // Constants
 // ---------------------------------------------------------------------------
 
-const BASE_URL = (import.meta as { env: { VITE_API_URL?: string } }).env.VITE_API_URL ?? 'http://localhost:4000'
-
 // Pre-defined palette for channel badge colors (cycles via hash)
 const CHANNEL_COLORS: string[] = [
   'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -95,7 +93,7 @@ export default function PubSubPage() {
     if (!connectionId) return
 
     const token = useAuthStore.getState().accessToken
-    const socket = io(`${BASE_URL}/pubsub`, {
+    const socket = io('/pubsub', {
       auth: { connectionId, token },
       transports: ['websocket'],
     })
