@@ -276,12 +276,12 @@ export default function SettingsPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">GitHub</span>
                   <a
-                    href="https://github.com/your-org/redis-gui"
+                    href="https://github.com/themkarimi/redis-gui"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-red-500 hover:text-red-400 transition-colors"
                   >
-                    github.com/your-org/redis-gui
+                    github.com/themkarimi/redis-gui
                   </a>
                 </div>
                 <div className="flex justify-between text-sm">
