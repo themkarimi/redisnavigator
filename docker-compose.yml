@@ -43,10 +43,13 @@ services:
       PORT: 4000
       FRONTEND_URL: http://localhost:3000
       OIDC_ENABLED: "true"
-      OIDC_ISSUER_URL: "https://iam.khadg.com"
+      OIDC_ISSUER_URL: "https://iam.khadg.com/realms/bitpin-tech-iam"
       OIDC_CLIENT_ID: "redisgui"
       OIDC_CLIENT_SECRET: "9a08b1641705eba6b2bfb1295430c5bf37a381"
       OIDC_REDIRECT_URI: http://localhost:4000/api/auth/oidc/callback
+      CONFIG_FILE: /app/config.yaml
+    volumes:
+      - ./backend/config.yaml:/app/config.yaml:ro
     ports:
       - "4000:4000"
     depends_on:

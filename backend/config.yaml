@@ -1,0 +1,36 @@
+connections:
+  - name: "Production Redis"
+    host: redis-prod.example.com
+    port: 6379
+    # Password can be an environment variable reference:
+    password: "123"
+    useTLS: false
+    mode: STANDALONE         # STANDALONE | SENTINEL | CLUSTER
+    tags:
+      - production
+
+
+# ---------------------------------------------------------------------------
+# groups – logical collections of users that share connection access
+# ---------------------------------------------------------------------------
+groups:
+  - name: "Services"
+    description: "BitPin Services Domain"
+    members:
+      - email: devops@example.com
+      - email: lead-engineer@example.com
+    permissions:
+      - name: "Production Redis"
+        role: OPERATOR       # SUPERADMIN | ADMIN | OPERATOR | VIEWER
+      - name: "Dev Redis"
+        role: ADMIN
+
+  - name: "Data"
+    description: "BitPin Data Domain"
+    members:
+      - email: analyst@example.com
+    permissions:
+      - name: "Production Redis"
+        role: VIEWER
+      - name: "Dev Redis"
+        role: VIEWER
