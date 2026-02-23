@@ -100,9 +100,15 @@ router.get(
         case 'set':
           value = await client.smembers(key);
           break;
-        case 'zset':
-          value = await client.zrange(key, 0, -1, 'WITHSCORES');
+        case 'zset': {
+          const raw = await client.zrange(key, 0, -1, 'WITHSCORES');
+          const entries: Array<{ member: string; score: number }> = [];
+          for (let i = 0; i < raw.length; i += 2) {
+            entries.push({ member: raw[i], score: parseFloat(raw[i + 1]) });
+          }
+          value = entries;
           break;
+        }
         case 'stream':
           value = await client.xrange(key, '-', '+', 'COUNT', 100);
           break;
@@ -145,6 +151,79 @@ router.post(
       res.status(201).json({ message: 'Key created', key: data.key });
     } catch (err) {
       if (err instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: err.errors }); return; }
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
+router.put(
+  '/:key',
+  requirePermission(Permission.WRITE_KEY),
+  auditLog(AuditAction.WRITE_KEY),
+  async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
+    try {
+      const connection = await getConnection(req.params.id);
+      if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
+
+      const client = await getRedisClient(connection, parseDb(req));
+      const key = decodeURIComponent(req.params.key);
+      const { value, ttl } = req.body as { value?: unknown; ttl?: number };
+
+      const keyType = await client.type(key);
+      if (keyType === 'none') { res.status(404).json({ error: 'Key not found' }); return; }
+
+      await setRedisValue(client, key, keyType, value);
+
+      if (ttl !== undefined) {
+        if (ttl < 0) await client.persist(key);
+        else await client.expire(key, ttl);
+      }
+
+      res.json({ message: 'Key updated' });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
+router.put(
+  '/:key/fields/:field',
+  requirePermission(Permission.WRITE_KEY),
+  auditLog(AuditAction.WRITE_KEY),
+  async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
+    try {
+      const connection = await getConnection(req.params.id);
+      if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
+
+      const client = await getRedisClient(connection, parseDb(req));
+      const key = decodeURIComponent(req.params.key);
+      const field = decodeURIComponent(req.params.field);
+      const { value } = req.body as { value: string };
+
+      await client.hset(key, field, String(value));
+      res.json({ message: 'Field updated' });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
+router.delete(
+  '/:key/fields/:field',
+  requirePermission(Permission.DELETE_KEY),
+  auditLog(AuditAction.DELETE_KEY),
+  async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
+    try {
+      const connection = await getConnection(req.params.id);
+      if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
+
+      const client = await getRedisClient(connection, parseDb(req));
+      const key = decodeURIComponent(req.params.key);
+      const field = decodeURIComponent(req.params.field);
+
+      await client.hdel(key, field);
+      res.json({ message: 'Field deleted' });
+    } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
   }
@@ -236,6 +315,39 @@ router.post(
       const client = await getRedisClient(connection, parseDb(req));
       const deleted = await client.del(...keys);
       res.json({ message: `Deleted ${deleted} keys`, deleted });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
+router.post(
+  '/delete-by-pattern',
+  requirePermission(Permission.DELETE_KEY),
+  async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
+    try {
+      const connection = await getConnection(req.params.id);
+      if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
+
+      const { pattern } = req.body as { pattern: string };
+      if (!pattern || typeof pattern !== 'string') {
+        res.status(400).json({ error: 'Pattern is required' });
+        return;
+      }
+
+      const client = await getRedisClient(connection, parseDb(req));
+      let deleted = 0;
+      let cursor = '0';
+
+      do {
+        const [nextCursor, batch] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+        if (batch.length > 0) {
+          deleted += await client.del(...batch);
+        }
+      } while (cursor !== '0');
+
+      res.json({ message: `Deleted ${deleted} keys matching "${pattern}"`, deleted });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
