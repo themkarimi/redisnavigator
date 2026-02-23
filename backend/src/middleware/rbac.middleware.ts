@@ -81,7 +81,7 @@ export function requirePermission(...permissions: Permission[]) {
 
       if (!userRole) {
         // Check if user owns the connection
-        const connection = await prisma.redisConnection.findUnique({
+        const connection = await prisma.redisConnection.findFirst({
           where: { id: connectionId, ownerId: req.user.userId },
         });
         if (connection) {

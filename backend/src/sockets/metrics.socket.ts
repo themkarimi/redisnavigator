@@ -23,7 +23,7 @@ export function setupMetricsSocket(io: Server): void {
   metricsNs.on('connection', (socket: Socket) => {
     socket.on('subscribe', async ({ connectionId }: { connectionId: string }) => {
       try {
-        const connection = await prisma.redisConnection.findUnique({
+        const connection = await prisma.redisConnection.findFirst({
           where: { id: connectionId, isActive: true },
         });
         if (!connection) { socket.emit('error', 'Connection not found'); return; }
