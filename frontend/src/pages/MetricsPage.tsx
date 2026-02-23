@@ -26,7 +26,6 @@ import { cn } from '@/utils/cn'
 // Constants
 // ---------------------------------------------------------------------------
 
-const BASE_URL = (import.meta as { env: { VITE_API_URL?: string } }).env.VITE_API_URL ?? 'http://localhost:4000'
 const MAX_POINTS = 60
 
 // ---------------------------------------------------------------------------
@@ -185,7 +184,7 @@ export default function MetricsPage() {
     if (!connectionId) return
 
     const token = useAuthStore.getState().accessToken
-    const socket = io(`${BASE_URL}/metrics`, {
+    const socket = io('/metrics', {
       auth: { connectionId, token },
       transports: ['websocket'],
     })
