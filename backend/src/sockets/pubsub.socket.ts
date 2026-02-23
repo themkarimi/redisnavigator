@@ -27,7 +27,7 @@ export function setupPubSubSocket(io: Server): void {
 
     socket.on('subscribe', async ({ connectionId, channels }: { connectionId: string; channels: string[] }) => {
       try {
-        const connection = await prisma.redisConnection.findUnique({
+        const connection = await prisma.redisConnection.findFirst({
           where: { id: connectionId, isActive: true },
         });
         if (!connection) { socket.emit('error', 'Connection not found'); return; }
@@ -78,7 +78,7 @@ export function setupPubSubSocket(io: Server): void {
 
     socket.on('publish', async ({ connectionId, channel, message }: { connectionId: string; channel: string; message: string }) => {
       try {
-        const connection = await prisma.redisConnection.findUnique({
+        const connection = await prisma.redisConnection.findFirst({
           where: { id: connectionId, isActive: true },
         });
         if (!connection) { socket.emit('error', 'Connection not found'); return; }
