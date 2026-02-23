@@ -10,7 +10,9 @@
 - Live metrics dashboard with charts
 - Role-based access control (SuperAdmin, Admin, Operator, Viewer)
 - JWT authentication with refresh tokens
+- OIDC / SSO login support
 - Connection credentials encrypted at rest (AES-256)
+- Configuration-as-code (connections & groups via YAML)
 - Audit logging
 
 ## Tech Stack
@@ -29,7 +31,7 @@
 
 ```bash
 # 1. Clone and enter project
-git clone <repo-url>
+git clone https://github.com/themkarimi/redis-gui.git
 cd redis-gui
 
 # 2. Configure environment
@@ -63,14 +65,32 @@ npm run dev
 ```
 
 ## Environment Variables
+
+### Backend (`backend/.env`)
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `NODE_ENV` | Node environment | `development` |
+| `PORT` | Backend port | `4000` |
 | `DATABASE_URL` | PostgreSQL connection string | - |
 | `JWT_ACCESS_SECRET` | Access token signing secret | - |
 | `JWT_REFRESH_SECRET` | Refresh token signing secret | - |
 | `ENCRYPTION_KEY` | 32-char AES-256 key for credentials | - |
 | `REDIS_BLACKLIST_URL` | Redis URL for token blacklist | - |
-| `PORT` | Backend port | 4000 |
+| `REDIS_BLACKLIST_PASSWORD` | Redis password for token blacklist | - |
+| `FRONTEND_URL` | Frontend origin (used for CORS) | `http://localhost:3000` |
+| `OIDC_ENABLED` | Enable OIDC/SSO login | `false` |
+| `OIDC_ISSUER_URL` | OIDC provider issuer URL | - |
+| `OIDC_CLIENT_ID` | OIDC client ID | - |
+| `OIDC_CLIENT_SECRET` | OIDC client secret | - |
+| `OIDC_REDIRECT_URI` | OIDC callback URL | - |
+| `CONFIG_FILE` | Path to config-as-code YAML file | - |
+
+### Frontend (`frontend/.env.local`)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_API_URL` | Backend API base URL | `http://localhost:4000` |
+| `VITE_WS_URL` | Backend WebSocket URL | `ws://localhost:4000` |
+| `VITE_OIDC_ENABLED` | Show OIDC login button in the UI | `false` |
 
 ## RBAC Roles
 | Role | Permissions |
@@ -79,6 +99,44 @@ npm run dev
 | Admin | Manage own connections, invite users, view/edit data |
 | Operator | Read and write keys on assigned connections |
 | Viewer | Read-only access on assigned connections |
+
+## Configuration-as-Code
+
+You can pre-provision Redis connections and user groups by pointing `CONFIG_FILE` at a YAML file. The file is read on every startup — entries are created or updated, nothing is deleted automatically.
+
+```bash
+cp backend/config.example.yaml backend/config.yaml
+# Edit config.yaml, then set CONFIG_FILE in backend/.env:
+CONFIG_FILE=./config.yaml
+```
+
+See [`backend/config.example.yaml`](backend/config.example.yaml) for a fully annotated example.
+
+## Helm Deployment
+
+A Helm chart is available under [`helm/redis-gui`](helm/redis-gui) for Kubernetes deployments.
+
+```bash
+# Install with default values (adjust as needed)
+helm install redis-gui ./helm/redis-gui \
+  --set backend.secret.jwtAccessSecret=<secret> \
+  --set backend.secret.jwtRefreshSecret=<secret> \
+  --set backend.secret.encryptionKey=<32-char-key> \
+  --set externalDatabase.host=<postgres-host> \
+  --set externalDatabase.password=<db-password> \
+  --set redisBlacklist.url=redis://<redis-host>:6379
+```
+
+Key values in `helm/redis-gui/values.yaml`:
+
+| Key | Description |
+|-----|-------------|
+| `backend.image.repository` | Backend image (`ghcr.io/themkarimi/redis-gui-backend`) |
+| `frontend.image.repository` | Frontend image (`ghcr.io/themkarimi/redis-gui-frontend`) |
+| `ingress.enabled` | Expose via Kubernetes Ingress |
+| `ingress.host` | External hostname (e.g. `redis-gui.example.com`) |
+| `oidc.enabled` | Enable OIDC/SSO |
+| `configFile.enabled` | Mount a config-as-code YAML into the backend |
 
 ## Running Tests
 ```bash
