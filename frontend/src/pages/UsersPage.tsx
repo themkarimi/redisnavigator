@@ -33,13 +33,15 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-const inviteSchema = z.object({
+const createUserSchema = z.object({
   email: z.string().email('Enter a valid email'),
+  name: z.string().min(1, 'Enter a name'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['ADMIN', 'OPERATOR', 'VIEWER'] as const),
   connectionId: z.string().min(1, 'Select a connection'),
 })
 
-type InviteFormValues = z.infer<typeof inviteSchema>
+type CreateUserFormValues = z.infer<typeof createUserSchema>
 
 const ROLE_COLORS: Record<UserRole, string> = {
   SUPERADMIN: 'bg-red-600 text-white border-red-700',
@@ -50,7 +52,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
 
 // ─── Invite Dialog ─────────────────────────────────────────────────────────────
 
-function InviteUserDialog() {
+function CreateUserDialog() {
   const [open, setOpen] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const queryClient = useQueryClient()
@@ -62,13 +64,13 @@ function InviteUserDialog() {
     control,
     reset,
     formState: { errors },
-  } = useForm<InviteFormValues>({
-    resolver: zodResolver(inviteSchema),
+  } = useForm<CreateUserFormValues>({
+    resolver: zodResolver(createUserSchema),
     defaultValues: { role: 'VIEWER' },
   })
 
-  const inviteMutation = useMutation({
-    mutationFn: (data: InviteFormValues) => api.post('/users/invite', data),
+  const createMutation = useMutation({
+    mutationFn: (data: CreateUserFormValues) => api.post('/users/create', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setOpen(false)
@@ -77,7 +79,7 @@ function InviteUserDialog() {
     },
     onError: (err) => {
       if (isAxiosError(err)) {
-        const msg = err.response?.data?.message ?? err.response?.data?.error ?? 'Failed to invite user.'
+        const msg = err.response?.data?.message ?? err.response?.data?.error ?? 'Failed to create user.'
         setApiError(Array.isArray(msg) ? msg.join(', ') : String(msg))
       } else {
         setApiError('An unexpected error occurred.')
@@ -85,9 +87,9 @@ function InviteUserDialog() {
     },
   })
 
-  function onSubmit(values: InviteFormValues) {
+  function onSubmit(values: CreateUserFormValues) {
     setApiError(null)
-    inviteMutation.mutate(values)
+    createMutation.mutate(values)
   }
 
   return (
@@ -95,14 +97,14 @@ function InviteUserDialog() {
       <DialogTrigger asChild>
         <Button className="bg-red-600 hover:bg-red-700 text-white gap-2">
           <UserPlus className="h-4 w-4" />
-          Invite User
+          Create User
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite User</DialogTitle>
+          <DialogTitle>Create User</DialogTitle>
           <DialogDescription>
-            Send an invitation to grant access to a Redis connection.
+            Create a new local user and grant access to a Redis connection.
           </DialogDescription>
         </DialogHeader>
 
@@ -114,9 +116,20 @@ function InviteUserDialog() {
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="invite-email">Email Address</Label>
+            <Label htmlFor="create-name">Full Name</Label>
             <Input
-              id="invite-email"
+              id="create-name"
+              type="text"
+              placeholder="John Doe"
+              {...register('name')}
+            />
+            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="create-email">Email Address</Label>
+            <Input
+              id="create-email"
               type="email"
               placeholder="user@example.com"
               {...register('email')}
@@ -125,13 +138,24 @@ function InviteUserDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="invite-connection">Connection</Label>
+            <Label htmlFor="create-password">Password</Label>
+            <Input
+              id="create-password"
+              type="password"
+              placeholder="Minimum 8 characters"
+              {...register('password')}
+            />
+            {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="create-connection">Connection</Label>
             <Controller
               name="connectionId"
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="invite-connection">
+                  <SelectTrigger id="create-connection">
                     <SelectValue placeholder="Select a connection" />
                   </SelectTrigger>
                   <SelectContent>
@@ -150,13 +174,13 @@ function InviteUserDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="invite-role">Role</Label>
+            <Label htmlFor="create-role">Role</Label>
             <Controller
               name="role"
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="invite-role">
+                  <SelectTrigger id="create-role">
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -176,16 +200,16 @@ function InviteUserDialog() {
             </Button>
             <Button
               type="submit"
-              disabled={inviteMutation.isPending}
+              disabled={createMutation.isPending}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {inviteMutation.isPending ? (
+              {createMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending…
+                  Creating…
                 </>
               ) : (
-                'Send Invite'
+                'Create User'
               )}
             </Button>
           </DialogFooter>
@@ -286,10 +310,10 @@ export default function UsersPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">User Management</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Invite and manage access for your team.
+            Create and manage access for your team.
           </p>
         </div>
-        <InviteUserDialog />
+        <CreateUserDialog />
       </div>
 
       {/* Table */}
@@ -305,7 +329,7 @@ export default function UsersPage() {
         <div className="flex flex-col items-center justify-center py-16 text-center border rounded-lg border-dashed">
           <p className="text-muted-foreground">No users found.</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Invite users to grant them access.
+            Create users to grant them access.
           </p>
         </div>
       ) : (
