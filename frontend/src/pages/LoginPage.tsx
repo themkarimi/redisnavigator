@@ -78,9 +78,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-600 mb-3">
-            <span className="text-white font-bold text-lg">R</span>
-          </div>
+          <img src="/favicon.svg" alt="RedisGUI logo" className="w-12 h-12 mb-3" />
           <h1 className="text-2xl font-bold text-white tracking-tight">RedisGUI</h1>
           <p className="text-gray-400 text-sm mt-1">Visual Redis management tool</p>
         </div>
@@ -171,15 +169,17 @@ export default function LoginPage() {
               </>
             )}
 
-            <p className="text-center text-sm text-gray-500 mt-6">
-              Don&apos;t have an account?{' '}
-              <Link
-                to="/register"
-                className="text-red-400 hover:text-red-300 font-medium transition-colors"
-              >
-                Register
-              </Link>
-            </p>
+            {!oidcEnabled && (
+              <p className="text-center text-sm text-gray-500 mt-6">
+                Don&apos;t have an account?{' '}
+                <Link
+                  to="/register"
+                  className="text-red-400 hover:text-red-300 font-medium transition-colors"
+                >
+                  Register
+                </Link>
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
