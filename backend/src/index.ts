@@ -16,6 +16,7 @@ import userRoutes from './routes/users.routes';
 import groupRoutes from './routes/groups.routes';
 import { setupPubSubSocket } from './sockets/pubsub.socket';
 import { setupMetricsSocket } from './sockets/metrics.socket';
+import { applyConfig } from './services/config-loader';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -64,6 +65,10 @@ async function main() {
   try {
     await prisma.$connect();
     logger.info('Connected to database');
+
+    if (env.CONFIG_FILE) {
+      await applyConfig(env.CONFIG_FILE);
+    }
 
     httpServer.listen(env.PORT, () => {
       logger.info(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
