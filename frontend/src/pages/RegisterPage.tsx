@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { isAxiosError } from 'axios'
 import { CheckCircle2, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { api } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,21 @@ export default function RegisterPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  const { data: authConfig, isLoading: isConfigLoading } = useQuery({
+    queryKey: ['auth-config'],
+    queryFn: async () => {
+      const { data } = await api.get<{ oidcEnabled: boolean }>('/auth/config')
+      return data
+    },
+    staleTime: Infinity,
+  })
+
+  useEffect(() => {
+    if (authConfig?.oidcEnabled) {
+      navigate('/login', { replace: true })
+    }
+  }, [authConfig, navigate])
+
   const {
     register,
     handleSubmit,
@@ -38,6 +54,10 @@ export default function RegisterPage() {
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   })
+
+  if (isConfigLoading || authConfig?.oidcEnabled) {
+    return null
+  }
 
   async function onSubmit(values: RegisterFormValues) {
     setApiError(null)
@@ -67,9 +87,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-600 mb-3">
-            <span className="text-white font-bold text-lg">R</span>
-          </div>
+          <img src="/favicon.svg" alt="RedisGUI logo" className="w-12 h-12 mb-3" />
           <h1 className="text-2xl font-bold text-white tracking-tight">RedisGUI</h1>
           <p className="text-gray-400 text-sm mt-1">Visual Redis management tool</p>
         </div>
