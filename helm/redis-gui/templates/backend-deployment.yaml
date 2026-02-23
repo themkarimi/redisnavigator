@@ -1,0 +1,147 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "redis-gui.fullname" . }}-backend
+  labels:
+    {{- include "redis-gui.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "redis-gui.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.backend.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "redis-gui.backend.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "redis-gui.serviceAccountName" . }}
+      {{- with .Values.backend.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          {{- with .Values.backend.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "redis-gui.backend.image" . }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 3
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.backend.nodeEnv | quote }}
+            - name: PORT
+              value: {{ .Values.backend.port | quote }}
+            - name: FRONTEND_URL
+              value: {{ .Values.backend.frontendUrl | quote }}
+            # Secrets from the backend Secret
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis-gui.backend.secretName" . }}
+                  key: JWT_ACCESS_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis-gui.backend.secretName" . }}
+                  key: JWT_REFRESH_SECRET
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis-gui.backend.secretName" . }}
+                  key: ENCRYPTION_KEY
+            - name: REDIS_BLACKLIST_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis-gui.backend.secretName" . }}
+                  key: REDIS_BLACKLIST_URL
+            - name: REDIS_BLACKLIST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis-gui.backend.secretName" . }}
+                  key: REDIS_BLACKLIST_PASSWORD
+            # External PostgreSQL DSN
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis-gui.database.secretName" . }}
+                  key: {{ include "redis-gui.database.secretKey" . }}
+            # OIDC (optional)
+            - name: OIDC_ENABLED
+              value: {{ .Values.oidc.enabled | quote }}
+            {{- if .Values.oidc.enabled }}
+            - name: OIDC_ISSUER_URL
+              value: {{ .Values.oidc.issuerUrl | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: OIDC_REDIRECT_URI
+              value: {{ .Values.oidc.redirectUri | quote }}
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis-gui.backend.secretName" . }}
+                  key: OIDC_CLIENT_SECRET
+            {{- end }}
+            {{- if .Values.configFile.enabled }}
+            - name: CONFIG_FILE
+              value: /app/config.yaml
+            {{- end }}
+          {{- if .Values.configFile.enabled }}
+          volumeMounts:
+            - name: config-file
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+          {{- end }}
+          {{- with .Values.backend.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if .Values.configFile.enabled }}
+      volumes:
+        - name: config-file
+          configMap:
+            name: {{ include "redis-gui.fullname" . }}-config
+      {{- end }}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

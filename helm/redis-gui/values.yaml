@@ -1,0 +1,193 @@
+# Default values for redis-gui.
+# Override these values with your own -f values.yaml or --set flags.
+
+# -- Number of replicas for the backend deployment
+replicaCount: 1
+
+# ---------------------------------------------------------------------------
+# Backend
+# ---------------------------------------------------------------------------
+backend:
+  image:
+    repository: ghcr.io/themkarimi/redis-gui-backend
+    pullPolicy: IfNotPresent
+    # Overrides the image tag. Defaults to the chart appVersion.
+    tag: ""
+
+  # Node environment
+  nodeEnv: production
+
+  # Port the backend container listens on
+  port: 4000
+
+  # URL of the frontend (used for CORS / redirect URLs).
+  # When using Ingress, set this to the full external URL, e.g. https://redis-gui.example.com
+  frontendUrl: "http://localhost:3000"
+
+  # -- Secrets for the backend.
+  # These values are stored in a Kubernetes Secret.
+  # All secrets MUST be changed before deploying to production.
+  secret:
+    # JWT signing secret for access tokens (min 32 chars recommended)
+    jwtAccessSecret: "change-me-jwt-access-secret"
+    # JWT signing secret for refresh tokens (min 32 chars recommended)
+    jwtRefreshSecret: "change-me-jwt-refresh-secret"
+    # 32-byte hex key used to encrypt stored Redis passwords
+    encryptionKey: "change-me-32-char-encryption-key"
+
+  # -- Optional: existing Secret that already contains the backend env vars.
+  # If set, `backend.secret.*` values are ignored and this secret is mounted instead.
+  existingSecret: ""
+
+  resources: {}
+  #  limits:
+  #    cpu: 500m
+  #    memory: 512Mi
+  #  requests:
+  #    cpu: 100m
+  #    memory: 128Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+frontend:
+  image:
+    repository: ghcr.io/themkarimi/redis-gui-frontend
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  # Number of frontend replicas (frontend is stateless, safe to scale)
+  replicaCount: 1
+
+  # Base URL of the backend API (must be reachable from the browser).
+  # When using Ingress, set this to the same external host, e.g. https://redis-gui.example.com
+  apiUrl: "http://localhost:4000"
+  # WebSocket URL for the backend (must be reachable from the browser).
+  # When using Ingress with TLS, use wss://; without TLS use ws://
+  wsUrl: "ws://localhost:4000"
+
+  resources: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+
+# ---------------------------------------------------------------------------
+# External PostgreSQL database (installed separately)
+# ---------------------------------------------------------------------------
+externalDatabase:
+  host: "postgres"
+  port: 5432
+  name: "redisgui_db"
+  user: "redisgui"
+  # Plain-text password (stored in a Secret)
+  password: "redisgui_secret"
+  # NOTE: The password must not contain URL-unsafe characters (e.g. @, :, /).
+  # If your password has special characters, use externalDatabase.existingSecret
+  # instead and set the full DSN there.
+  # -- Alternatively, reference an existing Secret.
+  # The Secret must contain a key named `DATABASE_URL` with the full DSN:
+  #   postgresql://<user>:<password>@<host>:<port>/<name>
+  existingSecret: ""
+  existingSecretKey: "DATABASE_URL"
+
+# ---------------------------------------------------------------------------
+# Redis used for JWT token blacklist
+# ---------------------------------------------------------------------------
+redisBlacklist:
+  # Full Redis URL, e.g. redis://my-redis:6379
+  url: "redis://redis:6379"
+  # Redis password (leave empty if none)
+  password: ""
+
+# ---------------------------------------------------------------------------
+# OIDC / SSO (optional)
+# ---------------------------------------------------------------------------
+oidc:
+  enabled: false
+  issuerUrl: ""
+  clientId: ""
+  clientSecret: ""
+  # Full callback URL that the OIDC provider will redirect to after login
+  redirectUri: ""
+
+# ---------------------------------------------------------------------------
+# Optional: Config-as-code (connections & groups YAML)
+# If enabled, the contents of `configFileContent` are stored in a ConfigMap
+# and mounted into the backend at /app/config.yaml.
+# ---------------------------------------------------------------------------
+configFile:
+  enabled: false
+  # Paste the full YAML content of your config.yaml here (as a multi-line string)
+  content: |
+    # connections:
+    #   - name: "My Redis"
+    #     host: redis.example.com
+    #     port: 6379
+    #     mode: STANDALONE
+
+# ---------------------------------------------------------------------------
+# Kubernetes Services
+# ---------------------------------------------------------------------------
+service:
+  backend:
+    type: ClusterIP
+    port: 4000
+  frontend:
+    type: ClusterIP
+    port: 80
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  #  kubernetes.io/ingress.class: nginx
+  #  cert-manager.io/cluster-issuer: letsencrypt-prod
+
+  # Single host that serves both frontend (/) and backend API (/api, /socket.io)
+  host: "redis-gui.example.com"
+  tls: []
+  #  - secretName: redis-gui-tls
+  #    hosts:
+  #      - redis-gui.example.com
+
+# ---------------------------------------------------------------------------
+# Autoscaling (HPA)
+# ---------------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# ---------------------------------------------------------------------------
+# ServiceAccount
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# ---------------------------------------------------------------------------
+# Image pull secrets (e.g. for private registries)
+# ---------------------------------------------------------------------------
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
