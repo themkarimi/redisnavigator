@@ -1,0 +1,15 @@
+{{/*
+Optional ConfigMap that holds the config-as-code YAML file (connections, groups).
+Only rendered when configFile.enabled is true.
+*/}}
+{{- if .Values.configFile.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "redis-gui.fullname" . }}-config
+  labels:
+    {{- include "redis-gui.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- .Values.configFile.content | nindent 4 }}
+{{- end }}

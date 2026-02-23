@@ -1,0 +1,15 @@
+apiVersion: v2
+name: redis-gui
+description: A Helm chart for Redis GUI — a web-based Redis management application with a Node.js backend and Nginx-served React frontend.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - redis
+  - gui
+  - dashboard
+home: https://github.com/themkarimi/redis-gui
+sources:
+  - https://github.com/themkarimi/redis-gui
+maintainers:
+  - name: themkarimi
