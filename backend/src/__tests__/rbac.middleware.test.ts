@@ -11,6 +11,7 @@ jest.mock('../config/prisma', () => ({
       findUnique: jest.fn(),
     },
     redisConnection: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     groupConnectionRole: {
@@ -25,6 +26,7 @@ const mockPrisma = prismaModule.prisma as unknown as {
     findUnique: jest.Mock;
   };
   redisConnection: {
+    findFirst: jest.Mock;
     findUnique: jest.Mock;
   };
   groupConnectionRole: {
@@ -258,7 +260,7 @@ describe('requirePermission', () => {
       // No direct role assignment on this connection
       mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
       // But user owns the connection
-      mockPrisma.redisConnection.findUnique.mockResolvedValue({
+      mockPrisma.redisConnection.findFirst.mockResolvedValue({
         id: 'owned-conn',
         ownerId: 'admin-user',
       });
@@ -284,7 +286,7 @@ describe('requirePermission', () => {
       mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
       mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
       // User does not own this connection
-      mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+      mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
       // No group access either
       mockPrisma.groupConnectionRole.findFirst.mockResolvedValue(null);
 
@@ -308,7 +310,7 @@ describe('requirePermission', () => {
 
       mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
       mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
-      mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+      mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
       mockPrisma.groupConnectionRole.findFirst.mockResolvedValue(null);
 
       await requirePermission(Permission.READ_KEY)(
@@ -514,7 +516,7 @@ describe('requirePermission - group-based access', () => {
     // No direct connection role
     mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
     // Does not own the connection
-    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+    mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
     // But group provides OPERATOR access
     mockPrisma.groupConnectionRole.findFirst.mockResolvedValue({
       groupId: 'group-1',
@@ -543,7 +545,7 @@ describe('requirePermission - group-based access', () => {
 
     mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
     mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
-    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+    mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
     // Group only has VIEWER access
     mockPrisma.groupConnectionRole.findFirst.mockResolvedValue({
       groupId: 'group-2',
@@ -569,7 +571,7 @@ describe('requirePermission - group-based access', () => {
 
     mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
     mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
-    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+    mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
     mockPrisma.groupConnectionRole.findFirst.mockResolvedValue(null);
 
     await requirePermission(Permission.READ_KEY)(

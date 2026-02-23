@@ -37,6 +37,7 @@ import { useDeleteKeysByPattern, useCreateKey } from '@/hooks/useKeys'
 import { api } from '@/services/api'
 import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
+import { getApiErrorMessage } from '@/utils/apiError'
 
 // ─── Type badge ──────────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
       toast({ title: 'Saved', description: 'String value updated.' })
       onRefresh()
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to save.', variant: 'destructive' }),
+    onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to save.'), variant: 'destructive' }),
   })
 
   return (
@@ -173,7 +174,7 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
       invalidate()
       toast({ title: 'Field saved', description: `"${vars.field}" updated.` })
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to update field.', variant: 'destructive' }),
+    onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to update field.'), variant: 'destructive' }),
   })
 
   const deleteMutation = useMutation({
@@ -187,7 +188,7 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
       invalidate()
       toast({ title: 'Deleted', description: `Field "${field}" removed.` })
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to delete field.', variant: 'destructive' }),
+    onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to delete field.'), variant: 'destructive' }),
   })
 
   const handleAddField = async (e: React.FormEvent) => {
@@ -335,7 +336,7 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
       return data
     },
     onSuccess: () => invalidate(),
-    onError: () => toast({ title: 'Error', description: 'Failed to update list.', variant: 'destructive' }),
+    onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to update list.'), variant: 'destructive' }),
   })
 
   const handleAdd = (position: 'head' | 'tail') => {
@@ -433,7 +434,7 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
       return data
     },
     onSuccess: () => invalidate(),
-    onError: () => toast({ title: 'Error', description: 'Failed to update set.', variant: 'destructive' }),
+    onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to update set.'), variant: 'destructive' }),
   })
 
   const handleAdd = (e: React.FormEvent) => {
@@ -519,8 +520,8 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
       return data
     },
     onSuccess: () => invalidate(),
-    onError: () =>
-      toast({ title: 'Error', description: 'Failed to update sorted set.', variant: 'destructive' }),
+    onError: (err) =>
+      toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to update sorted set.'), variant: 'destructive' }),
   })
 
   const handleSaveScore = (member: string, score: string) => {
@@ -755,7 +756,7 @@ function KeyDetailPanel({ connectionId, keyName, db, onDeleted }: KeyDetailPanel
       toast({ title: 'Deleted', description: `Key "${keyName}" removed.` })
       onDeleted()
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to delete key.', variant: 'destructive' }),
+    onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to delete key.'), variant: 'destructive' }),
   })
 
   if (detailQuery.isLoading) {
@@ -927,8 +928,8 @@ function AddKeyDialog({ open, onOpenChange, connectionId, db, onCreated }: AddKe
           onOpenChange(false)
           onCreated(data.key)
         },
-        onError: () => {
-          toast({ title: 'Error', description: 'Failed to create key.', variant: 'destructive' })
+        onError: (err) => {
+          toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to create key.'), variant: 'destructive' })
         },
       },
     )
@@ -1160,8 +1161,8 @@ export default function KeyBrowserPage() {
       setScanCursor(data.cursor)
       setHasMore(data.cursor !== '0')
       setIsScanningMore(false)
-    }).catch(() => {
-      toast({ title: 'Error', description: 'Failed to scan more keys.', variant: 'destructive' })
+    }).catch((err) => {
+      toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to scan more keys.'), variant: 'destructive' })
       setIsScanningMore(false)
     })
   }, [connectionId, pattern, db, scanCount, scanCursor, toast])
@@ -1204,8 +1205,8 @@ export default function KeyBrowserPage() {
           setSelectedKey(null)
           setReloadTrigger((n) => n + 1)
         },
-        onError: () => {
-          toast({ title: 'Error', description: 'Failed to delete keys by pattern.', variant: 'destructive' })
+        onError: (err) => {
+          toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to delete keys by pattern.'), variant: 'destructive' })
         },
         onSettled: () => setIsDeletingByPattern(false),
       }
