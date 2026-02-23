@@ -158,6 +158,7 @@ router.post(
 
 router.put(
   '/:key',
+  keysLimiter,
   requirePermission(Permission.WRITE_KEY),
   auditLog(AuditAction.WRITE_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
@@ -188,6 +189,7 @@ router.put(
 
 router.put(
   '/:key/fields/:field',
+  keysLimiter,
   requirePermission(Permission.WRITE_KEY),
   auditLog(AuditAction.WRITE_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
@@ -210,6 +212,7 @@ router.put(
 
 router.delete(
   '/:key/fields/:field',
+  keysLimiter,
   requirePermission(Permission.DELETE_KEY),
   auditLog(AuditAction.DELETE_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
@@ -323,6 +326,7 @@ router.post(
 
 router.post(
   '/delete-by-pattern',
+  keysLimiter,
   requirePermission(Permission.DELETE_KEY),
   auditLog(AuditAction.DELETE_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
