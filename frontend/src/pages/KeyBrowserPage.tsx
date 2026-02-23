@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
+import { useDeleteKeysByPattern } from '@/hooks/useKeys'
 import { api } from '@/services/api'
 import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -827,6 +828,7 @@ export default function KeyBrowserPage() {
   const { id: connectionId = '' } = useParams<{ id: string }>()
   const { toast } = useToast()
   const scanCount = useSettingsStore((s) => s.scanCount)
+  const deleteByPatternMutation = useDeleteKeysByPattern()
 
   const [searchInput, setSearchInput]   = useState('*')
   const [pattern, setPattern]           = useState('*')
@@ -926,17 +928,21 @@ export default function KeyBrowserPage() {
       if (!confirmed) return
     }
     setIsDeletingByPattern(true)
-    api.post(`/connections/${connectionId}/keys/delete-by-pattern`, { pattern }, { params: { db } })
-      .then(({ data }) => {
-        toast({ title: 'Deleted', description: data.message })
-        setSelectedKey(null)
-        setReloadTrigger((n) => n + 1)
-      })
-      .catch(() => {
-        toast({ title: 'Error', description: 'Failed to delete keys by pattern.', variant: 'destructive' })
-      })
-      .finally(() => setIsDeletingByPattern(false))
-  }, [connectionId, pattern, db, toast])
+    deleteByPatternMutation.mutate(
+      { connectionId, pattern, db },
+      {
+        onSuccess: (data) => {
+          toast({ title: 'Deleted', description: data.message })
+          setSelectedKey(null)
+          setReloadTrigger((n) => n + 1)
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to delete keys by pattern.', variant: 'destructive' })
+        },
+        onSettled: () => setIsDeletingByPattern(false),
+      }
+    )
+  }, [connectionId, pattern, db, toast, deleteByPatternMutation])
 
   if (!connectionId) {
     return (
