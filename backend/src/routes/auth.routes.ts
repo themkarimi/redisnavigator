@@ -91,7 +91,8 @@ router.post('/register', authLimiter, async (req: Request, res: Response): Promi
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -151,7 +152,8 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -209,7 +211,8 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -245,7 +248,7 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Re
       },
     });
 
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', { path: '/' });
     res.json({ message: 'Logged out successfully' });
   } catch {
     res.status(500).json({ error: 'Internal server error' });
@@ -383,7 +386,8 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 

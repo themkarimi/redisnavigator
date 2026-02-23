@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
@@ -10,10 +10,23 @@ export function PrivateRoute() {
   const accessToken = useAuthStore((s) => s.accessToken)
   const setAccessToken = useAuthStore((s) => s.setAccessToken)
   const logout = useAuthStore((s) => s.logout)
-  const [isRefreshing, setIsRefreshing] = useState(() => isAuthenticated && !accessToken)
+  const [hasHydrated, setHasHydrated] = useState(useAuthStore.persist.hasHydrated)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const refreshingRef = useRef(false)
 
   useEffect(() => {
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
+      setHasHydrated(true)
+    })
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    if (!hasHydrated) return
     if (!isAuthenticated || accessToken) return
+    if (refreshingRef.current) return
+    refreshingRef.current = true
+    setIsRefreshing(true)
 
     axios
       .post(`${BASE_URL}/api/auth/refresh`, {}, { withCredentials: true })
@@ -25,9 +38,10 @@ export function PrivateRoute() {
       })
       .finally(() => {
         setIsRefreshing(false)
+        refreshingRef.current = false
       })
-  }, [isAuthenticated, accessToken, setAccessToken, logout])
+  }, [hasHydrated, isAuthenticated, accessToken, setAccessToken, logout])
 
-  if (isRefreshing) return null
+  if (!hasHydrated || isRefreshing) return null
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />
 }
