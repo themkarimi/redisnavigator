@@ -14,8 +14,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
-
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -166,7 +164,7 @@ export default function LoginPage() {
                   type="button"
                   variant="outline"
                   className="w-full border-gray-700 text-gray-200 hover:bg-gray-800"
-                  onClick={() => { window.location.href = `${BASE_URL}/api/auth/oidc` }}
+                  onClick={() => { window.location.href = '/api/auth/oidc' }}
                 >
                   Sign in with SSO
                 </Button>

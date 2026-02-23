@@ -54,10 +54,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           env:
-            - name: VITE_API_URL
-              value: {{ .Values.frontend.apiUrl | quote }}
-            - name: VITE_WS_URL
-              value: {{ .Values.frontend.wsUrl | quote }}
             - name: VITE_OIDC_ENABLED
               value: {{ .Values.oidc.enabled | quote }}
           {{- with .Values.frontend.resources }}

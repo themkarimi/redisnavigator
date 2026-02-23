@@ -67,13 +67,6 @@ frontend:
   # Number of frontend replicas (frontend is stateless, safe to scale)
   replicaCount: 1
 
-  # Base URL of the backend API (must be reachable from the browser).
-  # When using Ingress, set this to the same external host, e.g. https://redis-gui.example.com
-  apiUrl: "http://localhost:4000"
-  # WebSocket URL for the backend (must be reachable from the browser).
-  # When using Ingress with TLS, use wss://; without TLS use ws://
-  wsUrl: "ws://localhost:4000"
-
   resources: {}
 
   nodeSelector: {}
