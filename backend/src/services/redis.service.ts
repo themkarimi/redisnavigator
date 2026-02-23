@@ -15,10 +15,11 @@ interface ConnectionConfig {
 
 const connectionPool = new Map<string, Redis | Cluster>();
 
-export function buildRedisOptions(config: ConnectionConfig): RedisOptions {
+export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOptions {
   const options: RedisOptions = {
     host: config.host,
     port: config.port,
+    db,
     connectTimeout: 10000,
     commandTimeout: 5000,
     lazyConnect: true,
@@ -41,26 +42,27 @@ export function buildRedisOptions(config: ConnectionConfig): RedisOptions {
   return options;
 }
 
-export async function getRedisClient(config: ConnectionConfig): Promise<Redis> {
-  const existing = connectionPool.get(config.id);
+export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<Redis> {
+  const poolKey = `${config.id}:${db}`;
+  const existing = connectionPool.get(poolKey);
   if (existing && existing instanceof Redis) {
     try {
       await existing.ping();
       return existing;
     } catch {
-      connectionPool.delete(config.id);
+      connectionPool.delete(poolKey);
     }
   }
 
-  const options = buildRedisOptions(config);
+  const options = buildRedisOptions(config, db);
   const client = new Redis(options);
 
   client.on('error', (err) => {
-    logger.warn(`Redis client error for connection ${config.id}:`, err.message);
+    logger.warn(`Redis client error for connection ${config.id} db ${db}:`, err.message);
   });
 
   await client.connect();
-  connectionPool.set(config.id, client);
+  connectionPool.set(poolKey, client);
   return client;
 }
 
@@ -86,9 +88,17 @@ export async function testConnection(config: Omit<ConnectionConfig, 'id'>): Prom
 }
 
 export async function closeConnection(connectionId: string): Promise<void> {
-  const client = connectionPool.get(connectionId);
-  if (client) {
-    await client.quit().catch(() => client.disconnect());
-    connectionPool.delete(connectionId);
+  const keysToDelete: string[] = [];
+  for (const key of connectionPool.keys()) {
+    if (key.startsWith(`${connectionId}:`)) {
+      keysToDelete.push(key);
+    }
+  }
+  for (const key of keysToDelete) {
+    const client = connectionPool.get(key);
+    if (client) {
+      await client.quit().catch(() => client.disconnect());
+      connectionPool.delete(key);
+    }
   }
 }
