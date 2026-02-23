@@ -120,6 +120,10 @@ oidc:
   issuerUrl: ""
   clientId: ""
   clientSecret: ""
+  # -- Alternatively, reference an existing Secret for the OIDC client secret.
+  # The Secret must contain a key named `OIDC_CLIENT_SECRET` (or set existingSecretKey).
+  existingSecret: ""
+  existingSecretKey: "OIDC_CLIENT_SECRET"
   # Full callback URL that the OIDC provider will redirect to after login
   redirectUri: ""
 

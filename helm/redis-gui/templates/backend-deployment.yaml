@@ -109,8 +109,8 @@ spec:
             - name: OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.backend.secretName" . }}
-                  key: OIDC_CLIENT_SECRET
+                  name: {{ include "redis-gui.oidc.secretName" . }}
+                  key: {{ include "redis-gui.oidc.secretKey" . }}
             {{- end }}
             {{- if .Values.configFile.enabled }}
             - name: CONFIG_FILE
