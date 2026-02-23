@@ -119,3 +119,21 @@ Key within the database secret that contains the DSN.
 {{- define "redis-gui.database.secretKey" -}}
 {{- default "DATABASE_URL" .Values.externalDatabase.existingSecretKey }}
 {{- end }}
+
+{{/*
+Name of the Secret that holds the OIDC client secret.
+*/}}
+{{- define "redis-gui.oidc.secretName" -}}
+{{- if .Values.oidc.existingSecret }}
+{{- .Values.oidc.existingSecret }}
+{{- else }}
+{{- include "redis-gui.backend.secretName" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Key within the OIDC secret that contains the client secret.
+*/}}
+{{- define "redis-gui.oidc.secretKey" -}}
+{{- default "OIDC_CLIENT_SECRET" .Values.oidc.existingSecretKey }}
+{{- end }}
