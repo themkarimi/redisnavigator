@@ -113,7 +113,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
   try {
     const data = loginSchema.parse(req.body);
 
-    const user = await prisma.user.findUnique({ where: { email: data.email, isActive: true } });
+    const user = await prisma.user.findFirst({ where: { email: data.email, isActive: true } });
     if (!user) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
@@ -181,7 +181,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
 
     const payload = verifyRefreshToken(token);
 
-    const storedToken = await prisma.refreshToken.findUnique({
+    const storedToken = await prisma.refreshToken.findFirst({
       where: { token, isRevoked: false },
     });
 
@@ -192,7 +192,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
 
     await prisma.refreshToken.update({ where: { id: storedToken.id }, data: { isRevoked: true } });
 
-    const user = await prisma.user.findUnique({ where: { id: payload.userId, isActive: true } });
+    const user = await prisma.user.findFirst({ where: { id: payload.userId, isActive: true } });
     if (!user) {
       res.status(401).json({ error: 'User not found' });
       return;

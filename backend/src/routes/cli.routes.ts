@@ -46,7 +46,7 @@ router.post(
         return;
       }
 
-      const connection = await prisma.redisConnection.findUnique({
+      const connection = await prisma.redisConnection.findFirst({
         where: { id: req.params.id, isActive: true },
       });
 

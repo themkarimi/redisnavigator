@@ -14,7 +14,7 @@ router.get(
   requirePermission(Permission.READ_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await prisma.redisConnection.findUnique({
+      const connection = await prisma.redisConnection.findFirst({
         where: { id: req.params.id, isActive: true },
       });
 
@@ -78,7 +78,7 @@ router.get(
   requirePermission(Permission.READ_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await prisma.redisConnection.findUnique({
+      const connection = await prisma.redisConnection.findFirst({
         where: { id: req.params.id, isActive: true },
       });
 

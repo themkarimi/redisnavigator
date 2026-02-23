@@ -25,7 +25,7 @@ function parseDb(req: ConnectionAccessRequest): number {
 }
 
 async function getConnection(connectionId: string): Promise<import('@prisma/client').RedisConnection | null> {
-  return prisma.redisConnection.findUnique({ where: { id: connectionId, isActive: true } });
+  return prisma.redisConnection.findFirst({ where: { id: connectionId, isActive: true } });
 }
 
 router.get(
