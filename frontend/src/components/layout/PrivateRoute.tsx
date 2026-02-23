@@ -3,8 +3,6 @@ import { Navigate, Outlet } from 'react-router-dom'
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
-
 export function PrivateRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const accessToken = useAuthStore((s) => s.accessToken)
@@ -33,7 +31,7 @@ export function PrivateRoute() {
     setIsRefreshing(true)
 
     axios
-      .post(`${BASE_URL}/api/auth/refresh`, {}, { withCredentials: true })
+      .post('/api/auth/refresh', {}, { withCredentials: true })
       .then(({ data }) => {
         setAccessToken(data.accessToken)
       })
