@@ -324,6 +324,7 @@ router.post(
 router.post(
   '/delete-by-pattern',
   requirePermission(Permission.DELETE_KEY),
+  auditLog(AuditAction.DELETE_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
