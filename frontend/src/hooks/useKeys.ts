@@ -75,3 +75,14 @@ export function useBulkDeleteKeys() {
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['keys', vars.connectionId] }),
   });
 }
+
+export function useDeleteKeysByPattern() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ connectionId, pattern, db }: { connectionId: string; pattern: string; db?: number }) => {
+      const { data } = await api.post(`/connections/${connectionId}/keys/delete-by-pattern`, { pattern }, { params: { db } });
+      return data as { message: string; deleted: number };
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['keys', vars.connectionId] }),
+  });
+}

@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
+import { useDeleteKeysByPattern } from '@/hooks/useKeys'
 import { api } from '@/services/api'
 import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -827,6 +828,7 @@ export default function KeyBrowserPage() {
   const { id: connectionId = '' } = useParams<{ id: string }>()
   const { toast } = useToast()
   const scanCount = useSettingsStore((s) => s.scanCount)
+  const deleteByPatternMutation = useDeleteKeysByPattern()
 
   const [searchInput, setSearchInput]   = useState('*')
   const [pattern, setPattern]           = useState('*')
@@ -840,6 +842,7 @@ export default function KeyBrowserPage() {
   const [isError, setIsError]               = useState(false)
   const [isScanningMore, setIsScanningMore] = useState(false)
   const [reloadTrigger, setReloadTrigger]   = useState(0)
+  const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
 
   // Debounce — also allow explicit search on Enter
   useEffect(() => {
@@ -912,6 +915,35 @@ export default function KeyBrowserPage() {
     setReloadTrigger((n) => n + 1)
   }, [])
 
+  const handleDeleteByPattern = useCallback(() => {
+    if (!pattern || pattern === '*') {
+      const confirmed = window.confirm(
+        'This will delete ALL keys in the selected database. Are you sure?'
+      )
+      if (!confirmed) return
+    } else {
+      const confirmed = window.confirm(
+        `Delete all keys matching "${pattern}"?`
+      )
+      if (!confirmed) return
+    }
+    setIsDeletingByPattern(true)
+    deleteByPatternMutation.mutate(
+      { connectionId, pattern, db },
+      {
+        onSuccess: (data) => {
+          toast({ title: 'Deleted', description: data.message })
+          setSelectedKey(null)
+          setReloadTrigger((n) => n + 1)
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to delete keys by pattern.', variant: 'destructive' })
+        },
+        onSettled: () => setIsDeletingByPattern(false),
+      }
+    )
+  }, [connectionId, pattern, db, toast, deleteByPatternMutation])
+
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -964,12 +996,27 @@ export default function KeyBrowserPage() {
             </Button>
           </div>
 
-          {/* Key count */}
-          <p className="text-xs text-muted-foreground pl-0.5">
-            {isLoading
-              ? 'Loading…'
-              : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
-          </p>
+          {/* Key count and delete by pattern */}
+          <div className="flex items-center justify-between pl-0.5">
+            <p className="text-xs text-muted-foreground">
+              {isLoading
+                ? 'Loading…'
+                : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
+            </p>
+            {!isLoading && keys.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                onClick={handleDeleteByPattern}
+                disabled={isDeletingByPattern}
+                title={`Delete all keys matching "${pattern}"`}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete by Pattern
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Keys */}
