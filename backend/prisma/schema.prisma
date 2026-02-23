@@ -44,6 +44,13 @@ enum AuditAction {
   DELETE_USER
   EXPORT_CONNECTIONS
   IMPORT_CONNECTIONS
+  CREATE_GROUP
+  UPDATE_GROUP
+  DELETE_GROUP
+  ADD_GROUP_MEMBER
+  REMOVE_GROUP_MEMBER
+  ASSIGN_GROUP_CONNECTION
+  REMOVE_GROUP_CONNECTION
 }
 
 model User {
@@ -60,6 +67,7 @@ model User {
   connectionRoles   UserConnectionRole[]
   ownedConnections  RedisConnection[]    @relation("ConnectionOwner")
   auditLogs         AuditLog[]
+  groupMembers      GroupMember[]
 }
 
 model RefreshToken {
@@ -93,6 +101,7 @@ model RedisConnection {
   updatedAt       DateTime           @updatedAt
 
   userRoles       UserConnectionRole[]
+  groupRoles      GroupConnectionRole[]
   auditLogs       AuditLog[]
 
   @@index([ownerId])
@@ -131,4 +140,44 @@ model AuditLog {
   @@index([userId])
   @@index([connectionId])
   @@index([createdAt])
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members         GroupMember[]
+  connectionRoles GroupConnectionRole[]
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+}
+
+model GroupConnectionRole {
+  id           String          @id @default(cuid())
+  groupId      String
+  connectionId String
+  role         UserRole
+  permissions  Permission[]
+  group        Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  connection   RedisConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([groupId, connectionId])
+  @@index([groupId])
+  @@index([connectionId])
 }

@@ -13,6 +13,7 @@ import keyRoutes from './routes/keys.routes';
 import cliRoutes from './routes/cli.routes';
 import statsRoutes from './routes/stats.routes';
 import userRoutes from './routes/users.routes';
+import groupRoutes from './routes/groups.routes';
 import { setupPubSubSocket } from './sockets/pubsub.socket';
 import { setupMetricsSocket } from './sockets/metrics.socket';
 
@@ -43,6 +44,7 @@ app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().to
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/groups', groupRoutes);
 app.use('/api/connections', connectionRoutes);
 app.use('/api/connections/:id/keys', keyRoutes);
 app.use('/api/connections/:id/cli', cliRoutes);

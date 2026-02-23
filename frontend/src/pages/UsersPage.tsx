@@ -256,9 +256,7 @@ function DeleteUserButton({ userId, userName }: { userId: string; userName: stri
 
 export default function UsersPage() {
   const currentUser = useAuthStore((s) => s.user)
-  const currentRole = (currentUser as unknown as { role?: UserRole })?.role
-
-  const canAccess = currentRole === 'SUPERADMIN' || currentRole === 'ADMIN'
+  const canAccess = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN'
 
   const { data: users, isLoading, isError } = useQuery<UserWithRoles[]>({
     queryKey: ['users'],

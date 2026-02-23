@@ -23,6 +23,7 @@ jest.mock('../config/prisma', () => ({
     user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
     refreshToken: { create: jest.fn() },
     auditLog: { create: jest.fn() },
+    userConnectionRole: { findMany: jest.fn().mockResolvedValue([]) },
   },
 }));
 jest.mock('../utils/redisBlacklist', () => ({

@@ -13,6 +13,9 @@ jest.mock('../config/prisma', () => ({
     redisConnection: {
       findUnique: jest.fn(),
     },
+    groupConnectionRole: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
@@ -23,6 +26,9 @@ const mockPrisma = prismaModule.prisma as unknown as {
   };
   redisConnection: {
     findUnique: jest.Mock;
+  };
+  groupConnectionRole: {
+    findFirst: jest.Mock;
   };
 };
 
@@ -279,6 +285,8 @@ describe('requirePermission', () => {
       mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
       // User does not own this connection
       mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+      // No group access either
+      mockPrisma.groupConnectionRole.findFirst.mockResolvedValue(null);
 
       await requirePermission(Permission.MANAGE_CONNECTION)(
         req as ConnectionAccessRequest,
@@ -301,6 +309,7 @@ describe('requirePermission', () => {
       mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
       mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
       mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+      mockPrisma.groupConnectionRole.findFirst.mockResolvedValue(null);
 
       await requirePermission(Permission.READ_KEY)(
         req as ConnectionAccessRequest,
@@ -487,5 +496,90 @@ describe('requireRole', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+  });
+});
+
+describe('requirePermission - group-based access', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('grants access when user has no direct role but belongs to a group with access', async () => {
+    const req = makeReq('group-user', { id: 'conn-g1' });
+    const res = makeRes();
+    const next = makeNext();
+
+    // Not SUPERADMIN
+    mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
+    // No direct connection role
+    mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
+    // Does not own the connection
+    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+    // But group provides OPERATOR access
+    mockPrisma.groupConnectionRole.findFirst.mockResolvedValue({
+      groupId: 'group-1',
+      connectionId: 'conn-g1',
+      role: UserRole.OPERATOR,
+    });
+
+    await requirePermission(Permission.READ_KEY)(
+      req as ConnectionAccessRequest,
+      res as Response,
+      next
+    );
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect((req as ConnectionAccessRequest).connectionRole).toEqual({
+      role: UserRole.OPERATOR,
+      permissions: expect.arrayContaining([Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY]),
+    });
+  });
+
+  it('denies access when group role lacks the required permission', async () => {
+    const req = makeReq('group-viewer', { id: 'conn-g2' });
+    const res = makeRes();
+    const next = makeNext();
+
+    mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
+    mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
+    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+    // Group only has VIEWER access
+    mockPrisma.groupConnectionRole.findFirst.mockResolvedValue({
+      groupId: 'group-2',
+      connectionId: 'conn-g2',
+      role: UserRole.VIEWER,
+    });
+
+    await requirePermission(Permission.WRITE_KEY)(
+      req as ConnectionAccessRequest,
+      res as Response,
+      next
+    );
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Insufficient permissions' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('denies access when user is in no group with access to the connection', async () => {
+    const req = makeReq('no-group-user', { id: 'conn-g3' });
+    const res = makeRes();
+    const next = makeNext();
+
+    mockPrisma.userConnectionRole.findFirst.mockResolvedValue(null);
+    mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
+    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
+    mockPrisma.groupConnectionRole.findFirst.mockResolvedValue(null);
+
+    await requirePermission(Permission.READ_KEY)(
+      req as ConnectionAccessRequest,
+      res as Response,
+      next
+    );
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: 'No access to this connection' });
+    expect(next).not.toHaveBeenCalled();
   });
 });
