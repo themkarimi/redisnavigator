@@ -13,6 +13,10 @@ const router = Router({ mergeParams: true });
 
 router.use(authMiddleware);
 
+function parseDb(req: ConnectionAccessRequest): number {
+  return parseInt((req.query.db as string) ?? '0', 10) || 0;
+}
+
 async function getConnection(connectionId: string): Promise<import('@prisma/client').RedisConnection | null> {
   return prisma.redisConnection.findUnique({ where: { id: connectionId, isActive: true } });
 }
@@ -26,7 +30,7 @@ router.get(
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const { pattern = '*', type, cursor: cursorParam = '0', count = '100' } = req.query as Record<string, string>;
-      const client = await getRedisClient(connection);
+      const client = await getRedisClient(connection, parseDb(req));
 
       let cursor = cursorParam;
       const keys: string[] = [];
@@ -76,7 +80,7 @@ router.get(
       const connection = await getConnection(req.params.id);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
-      const client = await getRedisClient(connection);
+      const client = await getRedisClient(connection, parseDb(req));
       const key = decodeURIComponent(req.params.key);
       const keyType = await client.type(key);
 
@@ -132,7 +136,7 @@ router.post(
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const data = setKeySchema.parse(req.body);
-      const client = await getRedisClient(connection);
+      const client = await getRedisClient(connection, parseDb(req));
 
       await setRedisValue(client, data.key, data.type, data.value);
 
@@ -157,7 +161,7 @@ router.patch(
       const connection = await getConnection(req.params.id);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
-      const client = await getRedisClient(connection);
+      const client = await getRedisClient(connection, parseDb(req));
       const key = decodeURIComponent(req.params.key);
       const { value, ttl, field, score, member } = req.body as {
         value?: unknown; ttl?: number; field?: string; score?: number; member?: string;
@@ -207,7 +211,7 @@ router.delete(
       const connection = await getConnection(req.params.id);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
-      const client = await getRedisClient(connection);
+      const client = await getRedisClient(connection, parseDb(req));
       const key = decodeURIComponent(req.params.key);
       await client.del(key);
       res.json({ message: 'Key deleted' });
@@ -231,7 +235,7 @@ router.post(
         return;
       }
 
-      const client = await getRedisClient(connection);
+      const client = await getRedisClient(connection, parseDb(req));
       const deleted = await client.del(...keys);
       res.json({ message: `Deleted ${deleted} keys`, deleted });
     } catch (err) {

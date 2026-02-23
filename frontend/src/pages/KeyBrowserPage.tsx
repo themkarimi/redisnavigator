@@ -75,13 +75,14 @@ type StreamValue = StreamEntry[]
 interface EditorProps {
   connectionId: string
   keyName: string
+  db: number
   detail: RedisKeyDetail
   onRefresh: () => void
 }
 
 // ─── String Editor ────────────────────────────────────────────────────────────
 
-function StringEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
+function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [editValue, setEditValue] = useState(() => prettyValue(detail.value))
@@ -93,6 +94,7 @@ function StringEditor({ connectionId, keyName, detail, onRefresh }: EditorProps)
       const { data } = await api.put(
         `/connections/${connectionId}/keys/${encodeURIComponent(keyName)}`,
         { value: editValue },
+        { params: { db } },
       )
       return data
     },
@@ -124,7 +126,7 @@ function StringEditor({ connectionId, keyName, detail, onRefresh }: EditorProps)
 
 // ─── Hash Editor ──────────────────────────────────────────────────────────────
 
-function HashEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
+function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
 
@@ -145,6 +147,7 @@ function HashEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
       const { data } = await api.put(
         `/connections/${connectionId}/keys/${encodeURIComponent(keyName)}/fields/${encodeURIComponent(field)}`,
         { value },
+        { params: { db } },
       )
       return data
     },
@@ -159,6 +162,7 @@ function HashEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
     mutationFn: async (field: string) => {
       await api.delete(
         `/connections/${connectionId}/keys/${encodeURIComponent(keyName)}/fields/${encodeURIComponent(field)}`,
+        { params: { db } },
       )
     },
     onSuccess: (_d, field) => {
@@ -292,7 +296,7 @@ function HashEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
 
 // ─── List Editor ──────────────────────────────────────────────────────────────
 
-function ListEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
+function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [newItem, setNewItem] = useState('')
@@ -308,6 +312,7 @@ function ListEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
       const { data } = await api.put(
         `/connections/${connectionId}/keys/${encodeURIComponent(keyName)}`,
         { value: newList },
+        { params: { db } },
       )
       return data
     },
@@ -389,7 +394,7 @@ function ListEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
 
 // ─── Set Editor ───────────────────────────────────────────────────────────────
 
-function SetEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
+function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [newMember, setNewMember] = useState('')
@@ -405,6 +410,7 @@ function SetEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
       const { data } = await api.put(
         `/connections/${connectionId}/keys/${encodeURIComponent(keyName)}`,
         { value: updated },
+        { params: { db } },
       )
       return data
     },
@@ -468,7 +474,7 @@ function SetEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
 
 // ─── ZSet Editor ─────────────────────────────────────────────────────────────
 
-function ZSetEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
+function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
 
@@ -490,6 +496,7 @@ function ZSetEditor({ connectionId, keyName, detail, onRefresh }: EditorProps) {
       const { data } = await api.put(
         `/connections/${connectionId}/keys/${encodeURIComponent(keyName)}`,
         { value: updated },
+        { params: { db } },
       )
       return data
     },
@@ -696,18 +703,20 @@ function StreamViewer({ detail }: { detail: RedisKeyDetail }) {
 interface KeyDetailPanelProps {
   connectionId: string
   keyName: string
+  db: number
   onDeleted: () => void
 }
 
-function KeyDetailPanel({ connectionId, keyName, onDeleted }: KeyDetailPanelProps) {
+function KeyDetailPanel({ connectionId, keyName, db, onDeleted }: KeyDetailPanelProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
 
   const detailQuery = useQuery<RedisKeyDetail>({
-    queryKey: ['key', connectionId, keyName],
+    queryKey: ['key', connectionId, keyName, db],
     queryFn: async () => {
       const { data } = await api.get<RedisKeyDetail>(
         `/connections/${connectionId}/keys/${encodeURIComponent(keyName)}`,
+        { params: { db } },
       )
       return data
     },
@@ -720,11 +729,11 @@ function KeyDetailPanel({ connectionId, keyName, onDeleted }: KeyDetailPanelProp
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await api.delete(`/connections/${connectionId}/keys/${encodeURIComponent(keyName)}`)
+      await api.delete(`/connections/${connectionId}/keys/${encodeURIComponent(keyName)}`, { params: { db } })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['keys', connectionId] })
-      qc.removeQueries({ queryKey: ['key', connectionId, keyName] })
+      qc.removeQueries({ queryKey: ['key', connectionId, keyName, db] })
       toast({ title: 'Deleted', description: `Key "${keyName}" removed.` })
       onDeleted()
     },
@@ -751,7 +760,7 @@ function KeyDetailPanel({ connectionId, keyName, onDeleted }: KeyDetailPanelProp
     )
   }
 
-  const editorProps: EditorProps = { connectionId, keyName, detail, onRefresh: handleRefresh }
+  const editorProps: EditorProps = { connectionId, keyName, db, detail, onRefresh: handleRefresh }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -821,6 +830,7 @@ export default function KeyBrowserPage() {
   const [searchInput, setSearchInput]   = useState('*')
   const [pattern, setPattern]           = useState('*')
   const [selectedKey, setSelectedKey]   = useState<string | null>(null)
+  const [db, setDb]                     = useState(0)
 
   // Debounce — also allow explicit search on Enter
   useEffect(() => {
@@ -829,11 +839,11 @@ export default function KeyBrowserPage() {
   }, [searchInput])
 
   const keysQuery = useQuery<{ keys: RedisKey[] }>({
-    queryKey: ['keys', connectionId, { pattern }],
+    queryKey: ['keys', connectionId, { pattern, db }],
     queryFn: async () => {
       const { data } = await api.get<{ keys: RedisKey[] }>(
         `/connections/${connectionId}/keys`,
-        { params: { pattern } },
+        { params: { pattern, db } },
       )
       return data
     },
@@ -848,6 +858,11 @@ export default function KeyBrowserPage() {
   }, [keysQuery, toast])
 
   const handleSelectKey = useCallback((key: string) => setSelectedKey(key), [])
+
+  const handleDbChange = useCallback((newDb: number) => {
+    setDb(newDb)
+    setSelectedKey(null)
+  }, [])
 
   const handleKeyDeleted = useCallback(() => {
     setSelectedKey(null)
@@ -872,7 +887,18 @@ export default function KeyBrowserPage() {
 
         {/* Search bar */}
         <div className="p-3 flex flex-col gap-2 border-b shrink-0">
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 items-center">
+            <span className="text-xs text-muted-foreground shrink-0">DB</span>
+            <select
+              value={db}
+              onChange={(e) => handleDbChange(Number(e.target.value))}
+              className="h-8 w-14 rounded-md border border-input bg-background px-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring shrink-0"
+              title="Select Redis database"
+            >
+              {Array.from({ length: 16 }, (_, i) => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <Input
@@ -941,9 +967,10 @@ export default function KeyBrowserPage() {
       <div className="flex-1 min-w-0 overflow-hidden">
         {selectedKey ? (
           <KeyDetailPanel
-            key={selectedKey}
+            key={`${selectedKey}:${db}`}
             connectionId={connectionId}
             keyName={selectedKey}
+            db={db}
             onDeleted={handleKeyDeleted}
           />
         ) : (
