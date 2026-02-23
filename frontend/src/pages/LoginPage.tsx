@@ -78,9 +78,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-600 mb-3">
-            <span className="text-white font-bold text-lg">R</span>
-          </div>
+          <img src="/logo.png" alt="Logo" className="h-36 mb-3" />
         </div>
 
         <Card className="bg-gray-900 border-gray-800 text-white">
