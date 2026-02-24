@@ -2,25 +2,7 @@ import { Response, NextFunction } from 'express';
 import { Permission, UserRole } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { ConnectionAccessRequest, AuthenticatedRequest } from '../types';
-
-const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  SUPERADMIN: [
-    Permission.READ_KEY,
-    Permission.WRITE_KEY,
-    Permission.DELETE_KEY,
-    Permission.MANAGE_CONNECTION,
-    Permission.MANAGE_USERS,
-  ],
-  ADMIN: [
-    Permission.READ_KEY,
-    Permission.WRITE_KEY,
-    Permission.DELETE_KEY,
-    Permission.MANAGE_CONNECTION,
-    Permission.MANAGE_USERS,
-  ],
-  OPERATOR: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY],
-  VIEWER: [Permission.READ_KEY],
-};
+import { ROLE_PERMISSIONS } from '../utils/rolePermissions';
 
 export function requirePermission(...permissions: Permission[]) {
   return async (

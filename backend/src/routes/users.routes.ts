@@ -8,6 +8,7 @@ import { auditLog } from '../middleware/audit.middleware';
 import { AuthenticatedRequest } from '../types';
 import { AuditAction, Permission, UserRole } from '@prisma/client';
 import { env } from '../config/env';
+import { ROLE_PERMISSIONS } from '../utils/rolePermissions';
 
 const router = Router();
 router.use(authMiddleware);
@@ -65,11 +66,7 @@ async function createUserHandler(req: AuthenticatedRequest, res: Response): Prom
               userId: newUser.id,
               connectionId: data.connectionId,
               role: data.role,
-              permissions: data.role === UserRole.VIEWER
-                ? [Permission.READ_KEY]
-                : data.role === UserRole.OPERATOR
-                ? [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY]
-                : [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY, Permission.MANAGE_CONNECTION, Permission.MANAGE_USERS],
+              permissions: ROLE_PERMISSIONS[data.role],
             },
           });
         }
@@ -104,19 +101,13 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const data = updateRoleSchema.parse(req.body);
-      const defaultPerms = {
-        [UserRole.VIEWER]: [Permission.READ_KEY],
-        [UserRole.OPERATOR]: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY],
-        [UserRole.ADMIN]: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY, Permission.MANAGE_CONNECTION, Permission.MANAGE_USERS],
-        [UserRole.SUPERADMIN]: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY, Permission.MANAGE_CONNECTION, Permission.MANAGE_USERS],
-      };
 
       await prisma.userConnectionRole.upsert({
         where: { userId_connectionId: { userId: req.params.id, connectionId: data.connectionId } },
-        update: { role: data.role, permissions: data.permissions || defaultPerms[data.role] },
+        update: { role: data.role, permissions: data.permissions || ROLE_PERMISSIONS[data.role] },
         create: {
           userId: req.params.id, connectionId: data.connectionId,
-          role: data.role, permissions: data.permissions || defaultPerms[data.role],
+          role: data.role, permissions: data.permissions || ROLE_PERMISSIONS[data.role],
         },
       });
 
