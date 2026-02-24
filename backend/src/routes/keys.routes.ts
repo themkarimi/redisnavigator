@@ -9,6 +9,7 @@ import { getRedisClient } from '../services/redis.service';
 import { ConnectionAccessRequest } from '../types';
 import { AuditAction, Permission } from '@prisma/client';
 import { Redis } from 'ioredis';
+import { env } from '../config/env';
 
 const router = Router({ mergeParams: true });
 
@@ -34,6 +35,10 @@ router.get(
   requirePermission(Permission.READ_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
+      if (env.DISABLED_COMMANDS.includes('SCAN')) {
+        res.status(403).json({ error: 'Command SCAN is disabled by the administrator' });
+        return;
+      }
       const connection = await getConnection(req.params.id);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
@@ -331,6 +336,10 @@ router.post(
   auditLog(AuditAction.DELETE_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
+      if (env.DISABLED_COMMANDS.includes('SCAN')) {
+        res.status(403).json({ error: 'Command SCAN is disabled by the administrator' });
+        return;
+      }
       const connection = await getConnection(req.params.id);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 

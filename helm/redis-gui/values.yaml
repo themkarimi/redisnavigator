@@ -121,6 +121,15 @@ oidc:
   redirectUri: ""
 
 # ---------------------------------------------------------------------------
+# Optional: Disable specific Redis commands in the CLI and key browser.
+# Provide a comma-separated list of uppercase Redis command names, e.g.:
+#   disabledCommands: "SCAN,FLUSHDB,FLUSHALL"
+# Leave empty (default) to apply no extra restrictions beyond the built-in
+# hardcoded block-list (FLUSHALL, CONFIG, REPLICAOF, SLAVEOF, DEBUG, SHUTDOWN).
+# ---------------------------------------------------------------------------
+disabledCommands: ""
+
+# ---------------------------------------------------------------------------
 # Optional: Config-as-code (connections & groups YAML)
 # If enabled, the contents of `configFileContent` are stored in a ConfigMap
 # and mounted into the backend at /app/config.yaml.
