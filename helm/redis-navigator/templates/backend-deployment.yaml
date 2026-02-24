@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "redis-gui.fullname" . }}-backend
+  name: {{ include "redis-navigator.fullname" . }}-backend
   labels:
-    {{- include "redis-gui.labels" . | nindent 4 }}
+    {{- include "redis-navigator.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend
 spec:
   {{- if not .Values.autoscaling.enabled }}
@@ -11,7 +11,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "redis-gui.backend.selectorLabels" . | nindent 6 }}
+      {{- include "redis-navigator.backend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.backend.podAnnotations }}
@@ -19,14 +19,14 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "redis-gui.backend.selectorLabels" . | nindent 8 }}
+        {{- include "redis-navigator.backend.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: backend
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "redis-gui.serviceAccountName" . }}
+      serviceAccountName: {{ include "redis-navigator.serviceAccountName" . }}
       {{- with .Values.backend.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -37,7 +37,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: {{ include "redis-gui.backend.image" . }}
+          image: {{ include "redis-navigator.backend.image" . }}
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - name: http
@@ -68,34 +68,34 @@ spec:
             - name: JWT_ACCESS_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.backend.secretName" . }}
+                  name: {{ include "redis-navigator.backend.secretName" . }}
                   key: JWT_ACCESS_SECRET
             - name: JWT_REFRESH_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.backend.secretName" . }}
+                  name: {{ include "redis-navigator.backend.secretName" . }}
                   key: JWT_REFRESH_SECRET
             - name: ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.backend.secretName" . }}
+                  name: {{ include "redis-navigator.backend.secretName" . }}
                   key: ENCRYPTION_KEY
             - name: REDIS_BLACKLIST_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.backend.secretName" . }}
+                  name: {{ include "redis-navigator.backend.secretName" . }}
                   key: REDIS_BLACKLIST_URL
             - name: REDIS_BLACKLIST_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.backend.secretName" . }}
+                  name: {{ include "redis-navigator.backend.secretName" . }}
                   key: REDIS_BLACKLIST_PASSWORD
             # External PostgreSQL DSN
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.database.secretName" . }}
-                  key: {{ include "redis-gui.database.secretKey" . }}
+                  name: {{ include "redis-navigator.database.secretName" . }}
+                  key: {{ include "redis-navigator.database.secretKey" . }}
             # OIDC (optional)
             - name: OIDC_ENABLED
               value: {{ .Values.oidc.enabled | quote }}
@@ -109,8 +109,8 @@ spec:
             - name: OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "redis-gui.oidc.secretName" . }}
-                  key: {{ include "redis-gui.oidc.secretKey" . }}
+                  name: {{ include "redis-navigator.oidc.secretName" . }}
+                  key: {{ include "redis-navigator.oidc.secretKey" . }}
             {{- end }}
             {{- if .Values.configFile.enabled }}
             - name: CONFIG_FILE
@@ -135,7 +135,7 @@ spec:
       volumes:
         - name: config-file
           configMap:
-            name: {{ include "redis-gui.fullname" . }}-config
+            name: {{ include "redis-navigator.fullname" . }}-config
       {{- end }}
       {{- with .Values.backend.nodeSelector }}
       nodeSelector:

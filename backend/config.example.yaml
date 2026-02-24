@@ -1,7 +1,7 @@
-# redis-gui configuration-as-code example
+# redis-navigator configuration-as-code example
 #
 # Set the environment variable CONFIG_FILE to the path of this file (or a copy)
-# to have redis-gui automatically create/update connections and groups on every
+# to have redis-navigator automatically create/update connections and groups on every
 # startup.
 #
 # All values that start with ${...} are resolved from environment variables at
