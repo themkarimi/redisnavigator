@@ -4,21 +4,21 @@
   Frontend : http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}/
   Backend  : http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}/api
 {{- else if eq .Values.service.frontend.type "NodePort" }}
-  export NODE_PORT_FRONTEND=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "redis-gui.fullname" . }}-frontend)
-  export NODE_PORT_BACKEND=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "redis-gui.fullname" . }}-backend)
+  export NODE_PORT_FRONTEND=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "redis-navigator.fullname" . }}-frontend)
+  export NODE_PORT_BACKEND=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "redis-navigator.fullname" . }}-backend)
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
   echo "Frontend : http://$NODE_IP:$NODE_PORT_FRONTEND"
   echo "Backend  : http://$NODE_IP:$NODE_PORT_BACKEND/api"
 {{- else if eq .Values.service.frontend.type "LoadBalancer" }}
   NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-  watch kubectl --namespace {{ .Release.Namespace }} get services {{ include "redis-gui.fullname" . }}-frontend
+  watch kubectl --namespace {{ .Release.Namespace }} get services {{ include "redis-navigator.fullname" . }}-frontend
 {{- else }}
   # Port-forward to access the frontend locally:
-  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "redis-gui.fullname" . }}-frontend 3000:{{ .Values.service.frontend.port }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "redis-navigator.fullname" . }}-frontend 3000:{{ .Values.service.frontend.port }}
   echo "Frontend : http://127.0.0.1:3000"
 
   # Port-forward to access the backend locally:
-  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "redis-gui.fullname" . }}-backend 4000:{{ .Values.service.backend.port }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "redis-navigator.fullname" . }}-backend 4000:{{ .Values.service.backend.port }}
   echo "Backend  : http://127.0.0.1:4000/api"
 {{- end }}
 

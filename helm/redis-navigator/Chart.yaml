@@ -1,0 +1,15 @@
+apiVersion: v2
+name: redis-navigator
+description: A Helm chart for RedisNavigator — a web-based Redis management application with a Node.js backend and Nginx-served React frontend.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - redis
+  - gui
+  - dashboard
+home: https://github.com/themkarimi/redis-navigator
+sources:
+  - https://github.com/themkarimi/redis-navigator
+maintainers:
+  - name: themkarimi

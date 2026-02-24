@@ -3,24 +3,24 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: redis-gui-postgres
+    container_name: redis-navigator-postgres
     environment:
-      POSTGRES_USER: redisgui
-      POSTGRES_PASSWORD: redisgui_secret
-      POSTGRES_DB: redisgui_db
+      POSTGRES_USER: redisnavigator
+      POSTGRES_PASSWORD: redisnavigator_secret
+      POSTGRES_DB: redisnavigator_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U redisgui"]
+      test: ["CMD-SHELL", "pg_isready -U redisnavigator"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis-sample:
     image: redis:7-alpine
-    container_name: redis-gui-sample
+    container_name: redis-navigator-sample
     command: redis-server --requirepass samplepassword --loglevel verbose
     ports:
       - "6379:6379"
@@ -31,10 +31,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: redis-gui-backend
+    container_name: redis-navigator-backend
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://redisgui:redisgui_secret@postgres:5432/redisgui_db
+      DATABASE_URL: postgresql://redisnavigator:redisnavigator_secret@postgres:5432/redisnavigator_db
       JWT_ACCESS_SECRET: f0508aa7d4ce58703cc6ed3ae400a40b1bace075cde5685cf3ad7d2ee3e50b57
       JWT_REFRESH_SECRET: f65e189cf67c0cbf62603d9b0b4c44eb24e2781ba52f7b221963f47bc502c327
       ENCRYPTION_KEY: 9a08b1641705eba6b2bfb1295430c5bf37a3811d9eae238956c76b9c4039e3ec
@@ -44,7 +44,7 @@ services:
       FRONTEND_URL: http://localhost:3000
       OIDC_ENABLED: "true"
       OIDC_ISSUER_URL: "https://iam.khadg.com/realms/bitpin-tech-iam"
-      OIDC_CLIENT_ID: "redisgui"
+      OIDC_CLIENT_ID: "redisnavigator"
       OIDC_CLIENT_SECRET: "9a08b1641705eba6b2bfb1295430c5bf37a381"
       OIDC_REDIRECT_URI: http://localhost:4000/api/auth/oidc/callback
       CONFIG_FILE: /app/config.yaml
@@ -63,7 +63,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: redis-gui-frontend
+    container_name: redis-navigator-frontend
     ports:
       - "3000:80"
     depends_on:
