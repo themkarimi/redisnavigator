@@ -3,6 +3,7 @@ import { api } from '../services/api';
 
 interface Features {
   configAsCode: boolean;
+  disabledCommands: string[];
 }
 
 export function useFeatures() {

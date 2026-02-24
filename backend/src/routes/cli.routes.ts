@@ -8,10 +8,16 @@ import { getRedisClient } from '../services/redis.service';
 import { ConnectionAccessRequest } from '../types';
 import { AuditAction, Permission } from '@prisma/client';
 
+import { env } from '../config/env';
+
 const router = Router({ mergeParams: true });
 router.use(authMiddleware);
 
 const BLOCKED_COMMANDS = ['FLUSHALL', 'CONFIG', 'REPLICAOF', 'SLAVEOF', 'DEBUG', 'SHUTDOWN'];
+
+function getEffectiveBlockedCommands(): Set<string> {
+  return new Set([...BLOCKED_COMMANDS, ...env.DISABLED_COMMANDS]);
+}
 
 const cliSchema = z.object({
   command: z.string().min(1).max(1000),
@@ -28,7 +34,7 @@ router.post(
       const parts = command.trim().split(/\s+/);
       const cmd = parts[0].toUpperCase();
 
-      if (BLOCKED_COMMANDS.includes(cmd)) {
+      if (getEffectiveBlockedCommands().has(cmd)) {
         res.status(403).json({ error: `Command ${cmd} is not allowed`, result: null });
         return;
       }

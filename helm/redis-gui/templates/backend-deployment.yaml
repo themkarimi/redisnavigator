@@ -116,6 +116,10 @@ spec:
             - name: CONFIG_FILE
               value: /app/config.yaml
             {{- end }}
+            {{- if .Values.disabledCommands }}
+            - name: DISABLED_COMMANDS
+              value: {{ .Values.disabledCommands | quote }}
+            {{- end }}
           {{- if .Values.configFile.enabled }}
           volumeMounts:
             - name: config-file

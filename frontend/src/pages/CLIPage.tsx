@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '@/services/api'
 import { useConnectionStore } from '@/store/connectionStore'
 import { useToast } from '@/hooks/use-toast'
+import { useFeatures } from '@/hooks/useFeatures'
 import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------
@@ -19,9 +20,9 @@ interface CommandEntry {
 // Constants
 // ---------------------------------------------------------------------------
 
-const BLOCKED_COMMANDS = ['FLUSHALL', 'CONFIG', 'REPLICAOF', 'SLAVEOF', 'DEBUG', 'SHUTDOWN']
+const BASE_BLOCKED_COMMANDS = ['FLUSHALL', 'CONFIG', 'REPLICAOF', 'SLAVEOF', 'DEBUG', 'SHUTDOWN']
 
-const SUGGESTION_CHIPS: string[] = [
+const ALL_SUGGESTION_CHIPS: string[] = [
   'PING',
   'INFO',
   'DBSIZE',
@@ -48,9 +49,9 @@ function formatResponse(result: unknown): string {
   return String(result)
 }
 
-function isBlockedCommand(input: string): string | null {
+function isBlockedCommand(input: string, blockedCommands: Set<string>): string | null {
   const cmd = input.trim().split(/\s+/)[0]?.toUpperCase()
-  if (cmd && BLOCKED_COMMANDS.includes(cmd)) {
+  if (cmd && blockedCommands.has(cmd)) {
     return cmd
   }
   return null
@@ -69,6 +70,18 @@ export default function CLIPage() {
   const connections = useConnectionStore((s) => s.connections)
   const connection = connections.find((c) => c.id === connectionId) ?? null
   const { toast } = useToast()
+  const { data: features } = useFeatures()
+
+  const blockedCommands = useMemo(
+    () => new Set([...BASE_BLOCKED_COMMANDS, ...(features?.disabledCommands ?? [])]),
+    [features?.disabledCommands]
+  )
+  const suggestionChips = useMemo(
+    () => ALL_SUGGESTION_CHIPS.filter(
+      (chip) => !blockedCommands.has(chip.split(/\s+/)[0].toUpperCase())
+    ),
+    [blockedCommands]
+  )
 
   const [history, setHistory] = useState<CommandEntry[]>([])
   const [commandHistory, setCommandHistory] = useState<string[]>([])
@@ -132,7 +145,7 @@ export default function CLIPage() {
       }
 
       // Blocked command warning
-      const blocked = isBlockedCommand(trimmed)
+      const blocked = isBlockedCommand(trimmed, blockedCommands)
       if (blocked) {
         appendEntry({
           type: 'error',
@@ -162,7 +175,7 @@ export default function CLIPage() {
         setIsLoading(false)
       }
     },
-    [connectionId, appendEntry, clearOutput, toast]
+    [connectionId, appendEntry, clearOutput, toast, blockedCommands]
   )
 
   const handleKeyDown = useCallback(
@@ -249,7 +262,7 @@ export default function CLIPage() {
         onClick={(e) => e.stopPropagation()}
       >
         <span className="text-gray-600 text-xs mr-1">Quick:</span>
-        {SUGGESTION_CHIPS.map((chip) => (
+        {suggestionChips.map((chip) => (
           <button
             key={chip}
             onClick={() => handleSuggestionClick(chip)}
