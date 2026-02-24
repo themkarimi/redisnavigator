@@ -3,6 +3,7 @@ import { AuditAction } from '@prisma/client';
 import { auditLog } from '../middleware/audit.middleware';
 import { AuthenticatedRequest } from '../types';
 import * as prismaModule from '../config/prisma';
+import * as loggerModule from '../config/logger';
 
 jest.mock('../config/prisma', () => ({
   prisma: {
@@ -18,6 +19,10 @@ jest.mock('../config/logger', () => ({
 
 const mockPrisma = prismaModule.prisma as unknown as {
   auditLog: { create: jest.Mock };
+};
+
+const mockLogger = loggerModule.logger as unknown as {
+  info: jest.Mock;
 };
 
 function makeReq(overrides: Partial<AuthenticatedRequest> = {}): AuthenticatedRequest {
@@ -136,5 +141,32 @@ describe('auditLog middleware', () => {
 
     await Promise.resolve();
     expect(mockPrisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('logs userEmail instead of userId in the audit logger output', async () => {
+    mockPrisma.auditLog.create.mockResolvedValue({ id: 'audit-id-5' });
+
+    const req = makeReq({ params: { key: 'mykey' } });
+    const res = makeRes();
+    const next: NextFunction = jest.fn();
+
+    const middleware = auditLog(AuditAction.READ_KEY);
+    await middleware(req, res as Response, next);
+    (res.json as jest.Mock).call(res, { ok: true });
+
+    await Promise.resolve();
+
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'audit',
+      expect.objectContaining({
+        userEmail: 'user@test.com',
+      })
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'audit',
+      expect.not.objectContaining({
+        userId: expect.anything(),
+      })
+    );
   });
 });
