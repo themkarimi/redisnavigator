@@ -159,7 +159,7 @@ export default function LoginPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full border-gray-700 text-gray-200 hover:bg-gray-800"
+                  className="w-full border-gray-700 text-black hover:bg-gray-800"
                   onClick={() => { window.location.href = '/api/auth/oidc' }}
                 >
                   Sign in with SSO
