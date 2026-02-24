@@ -68,14 +68,6 @@ async function main() {
       ],
     },
   });
-
-  console.log(`✅ SUPERADMIN role assigned`);
-  console.log('');
-  console.log('─────────────────────────────────────');
-  console.log('  Default admin credentials:');
-  console.log('  Email   : admin@redisgui.local');
-  console.log('  Password: Admin123!');
-  console.log('─────────────────────────────────────');
 }
 
 main()
