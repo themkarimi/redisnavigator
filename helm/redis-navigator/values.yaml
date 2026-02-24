@@ -1,4 +1,4 @@
-# Default values for redis-gui.
+# Default values for redis-navigator.
 # Override these values with your own -f values.yaml or --set flags.
 
 # -- Number of replicas for the backend deployment
@@ -9,7 +9,7 @@ replicaCount: 1
 # ---------------------------------------------------------------------------
 backend:
   image:
-    repository: ghcr.io/themkarimi/redis-gui-backend
+    repository: ghcr.io/themkarimi/redis-navigator-backend
     pullPolicy: IfNotPresent
     # Overrides the image tag. Defaults to the chart appVersion.
     tag: ""
@@ -21,7 +21,7 @@ backend:
   port: 4000
 
   # URL of the frontend (used for CORS / redirect URLs).
-  # When using Ingress, set this to the full external URL, e.g. https://redis-gui.example.com
+  # When using Ingress, set this to the full external URL, e.g. https://redis-navigator.example.com
   frontendUrl: "http://localhost:3000"
 
   # -- Secrets for the backend.
@@ -60,7 +60,7 @@ backend:
 # ---------------------------------------------------------------------------
 frontend:
   image:
-    repository: ghcr.io/themkarimi/redis-gui-frontend
+    repository: ghcr.io/themkarimi/redis-navigator-frontend
     pullPolicy: IfNotPresent
     tag: ""
 
@@ -83,10 +83,10 @@ frontend:
 externalDatabase:
   host: "postgres"
   port: 5432
-  name: "redisgui_db"
-  user: "redisgui"
+  name: "redisnavigator_db"
+  user: "redisnavigator"
   # Plain-text password (stored in a Secret)
-  password: "redisgui_secret"
+  password: "redisnavigator_secret"
   # NOTE: The password must not contain URL-unsafe characters (e.g. @, :, /).
   # If your password has special characters, use externalDatabase.existingSecret
   # instead and set the full DSN there.
@@ -166,11 +166,11 @@ ingress:
   #  cert-manager.io/cluster-issuer: letsencrypt-prod
 
   # Single host that serves both frontend (/) and backend API (/api, /socket.io)
-  host: "redis-gui.example.com"
+  host: "redis-navigator.example.com"
   tls: []
-  #  - secretName: redis-gui-tls
+  #  - secretName: redis-navigator-tls
   #    hosts:
-  #      - redis-gui.example.com
+  #      - redis-navigator.example.com
 
 # ---------------------------------------------------------------------------
 # Autoscaling (HPA)
