@@ -8,6 +8,7 @@ import { requireConfigEditable } from '../middleware/configAsCode.middleware';
 import { auditLog } from '../middleware/audit.middleware';
 import { AuthenticatedRequest } from '../types';
 import { AuditAction, Permission, UserRole } from '@prisma/client';
+import { ROLE_PERMISSIONS } from '../utils/rolePermissions';
 
 const router = Router();
 
@@ -19,13 +20,6 @@ const groupsLimiter = rateLimit({
 
 router.use(groupsLimiter);
 router.use(authMiddleware);
-
-const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  SUPERADMIN: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY, Permission.MANAGE_CONNECTION, Permission.MANAGE_USERS],
-  ADMIN: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY, Permission.MANAGE_CONNECTION, Permission.MANAGE_USERS],
-  OPERATOR: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY],
-  VIEWER: [Permission.READ_KEY],
-};
 
 const groupSchema = z.object({
   name: z.string().min(1).max(100),

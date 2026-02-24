@@ -166,7 +166,7 @@ router.delete(
   }
 );
 
-router.post('/test', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.post('/test', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const data = testConnectionSchema.parse(req.body);
     const result = await testConnection({

@@ -15,6 +15,10 @@ import { logger } from '../config/logger';
 
 const router = Router();
 
+const REFRESH_TOKEN_DAYS = 7;
+const REFRESH_TOKEN_MAX_AGE_MS = REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000;
+const ACCESS_TOKEN_BLACKLIST_TTL_SECONDS = env.JWT_ACCESS_EXPIRES_IN_SECONDS;
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -28,6 +32,32 @@ const ROLE_PRIORITY: Record<UserRole, number> = {
   OPERATOR: 2,
   VIEWER: 1,
 };
+
+/**
+ * Persists a new refresh token to the database and sets the refreshToken
+ * cookie on the response.  Extracted to avoid duplicating the same block in
+ * the register, login, and OIDC-callback handlers.
+ */
+async function storeRefreshTokenAndSetCookie(
+  userId: string,
+  refreshToken: string,
+  res: Response,
+): Promise<void> {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_DAYS);
+
+  await prisma.refreshToken.create({
+    data: { token: refreshToken, userId, expiresAt },
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: REFRESH_TOKEN_MAX_AGE_MS,
+  });
+}
 
 async function getUserHighestRole(userId: string): Promise<UserRole | null> {
   const roles = await prisma.userConnectionRole.findMany({
@@ -81,20 +111,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response): Promi
     const accessToken = signAccessToken({ userId: user.id, email: user.email });
     const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await prisma.refreshToken.create({
-      data: { token: refreshToken, userId: user.id, expiresAt },
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res);
 
     res.status(201).json({
       accessToken,
@@ -133,13 +150,6 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
     const accessToken = signAccessToken({ userId: user.id, email: user.email });
     const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await prisma.refreshToken.create({
-      data: { token: refreshToken, userId: user.id, expiresAt },
-    });
-
     await prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -149,13 +159,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
       },
     });
 
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res);
 
     const role = await getUserHighestRole(user.id);
     res.json({
@@ -201,20 +205,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
     const newAccessToken = signAccessToken({ userId: user.id, email: user.email });
     const newRefreshToken = signRefreshToken({ userId: user.id, email: user.email });
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await prisma.refreshToken.create({
-      data: { token: newRefreshToken, userId: user.id, expiresAt },
-    });
-
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    await storeRefreshTokenAndSetCookie(user.id, newRefreshToken, res);
 
     res.json({ accessToken: newAccessToken });
   } catch {
@@ -236,7 +227,7 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Re
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       const accessToken = authHeader.split(' ')[1];
-      await blacklistToken(accessToken, 15 * 60);
+      await blacklistToken(accessToken, ACCESS_TOKEN_BLACKLIST_TTL_SECONDS);
     }
 
     await prisma.auditLog.create({
@@ -415,13 +406,6 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
     const accessToken = signAccessToken({ userId: user.id, email: user.email });
     const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await prisma.refreshToken.create({
-      data: { token: refreshToken, userId: user.id, expiresAt },
-    });
-
     await prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -431,13 +415,7 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
       },
     });
 
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res);
 
     const userParam = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, name: user.name, role: await getUserHighestRole(user.id), hasPassword: !!user.password }));
     res.redirect(`${env.FRONTEND_URL}/oidc/callback#access_token=${accessToken}&user=${userParam}`);
