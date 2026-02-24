@@ -1,7 +1,9 @@
 import { Response, NextFunction } from 'express';
 import { Prisma, AuditAction } from '@prisma/client';
 import { prisma } from '../config/prisma';
+import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '../types';
+import { maskKey } from '../utils/maskKey';
 
 export function auditLog(action: AuditAction) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -9,17 +11,38 @@ export function auditLog(action: AuditAction) {
     res.json = (body: unknown) => {
       if (res.statusCode < 400 && req.user) {
         const connectionId = req.params.id || req.params.connectionId;
+        const rawKey = req.params.key
+          ? decodeURIComponent(req.params.key)
+          : (req.body as { key?: string })?.key;
+        const maskedKey = rawKey ? maskKey(rawKey) : undefined;
+
+        // Strip sensitive value data from the details before persisting
+        const { value: _value, password: _password, ...safeBody } =
+          (req.body as Record<string, unknown>) ?? {};
+        const safeDetails = Object.keys(safeBody).length > 0
+          ? (safeBody as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull;
+
         prisma.auditLog.create({
           data: {
             userId: req.user.userId,
             connectionId: connectionId || null,
             action,
-            resourceKey: req.params.key || (req.body as { key?: string })?.key,
-            details: req.body as unknown as Prisma.InputJsonValue,
+            resourceKey: maskedKey,
+            details: safeDetails,
             ipAddress: req.ip,
             userAgent: req.headers['user-agent'],
           },
-        }).catch(() => {/* ignore audit log errors */});
+        }).then((record) => {
+          logger.info('audit', {
+            auditId: record.id,
+            action,
+            userId: req.user.userId,
+            connectionId: connectionId || null,
+            resourceKey: maskedKey,
+            ipAddress: req.ip,
+          });
+        }).catch(() => { /* ignore audit log errors */ });
       }
       return originalJson(body);
     };
