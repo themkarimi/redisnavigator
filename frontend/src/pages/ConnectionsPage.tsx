@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  Lock,
 } from 'lucide-react'
 import {
   useConnections,
@@ -220,18 +219,6 @@ export default function ConnectionsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Config-as-code notice */}
-      {configAsCode && (
-        <div role="alert" className="flex items-center gap-2 mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-          <Lock className="w-4 h-4 shrink-0" />
-          <span>
-            This instance is running in <strong>config-as-code</strong> mode. Connections are
-            managed via the configuration file and cannot be created, edited, or deleted from the
-            UI.
-          </span>
-        </div>
-      )}
-
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
