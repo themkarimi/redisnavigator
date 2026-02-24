@@ -14,6 +14,7 @@
 - Connection credentials encrypted at rest (AES-256)
 - Configuration-as-code (connections & groups via YAML)
 - Audit logging
+- Configurable command blocklist (per-instance or global)
 
 ## Tech Stack
 | Layer | Technology |
@@ -84,6 +85,7 @@ npm run dev
 | `OIDC_CLIENT_SECRET` | OIDC client secret | - |
 | `OIDC_REDIRECT_URI` | OIDC callback URL | - |
 | `CONFIG_FILE` | Path to config-as-code YAML file | - |
+| `DISABLED_COMMANDS` | Comma-separated Redis commands to block in the CLI and key browser (e.g. `FLUSHDB,FLUSHALL`) | - |
 
 ### Frontend (`frontend/.env.local`)
 | Variable | Description | Default |
@@ -135,6 +137,7 @@ Key values in `helm/redis-gui/values.yaml`:
 | `ingress.host` | External hostname (e.g. `redis-gui.example.com`) |
 | `oidc.enabled` | Enable OIDC/SSO |
 | `configFile.enabled` | Mount a config-as-code YAML into the backend |
+| `disabledCommands` | Comma-separated Redis commands to block in the CLI and key browser |
 
 ## Running Tests
 ```bash
