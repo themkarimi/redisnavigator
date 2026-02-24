@@ -8,6 +8,7 @@ export const env = {
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'fallback_access_secret',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret',
   JWT_ACCESS_EXPIRES_IN: '15m',
+  JWT_ACCESS_EXPIRES_IN_SECONDS: 15 * 60,
   JWT_REFRESH_EXPIRES_IN: '7d',
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || 'fallback_32_char_key_change_me!!',
   REDIS_BLACKLIST_URL: process.env.REDIS_BLACKLIST_URL || 'redis://localhost:6379',

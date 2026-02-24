@@ -1,9 +1,10 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
-import { Permission, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { logger } from '../config/logger';
 import { encrypt } from '../utils/encryption';
+import { ROLE_PERMISSIONS } from '../utils/rolePermissions';
 
 // ---------------------------------------------------------------------------
 // Types that describe the YAML schema
@@ -37,29 +38,6 @@ export interface YamlConfig {
   connections?: YamlConnection[];
   groups?: YamlGroup[];
 }
-
-// ---------------------------------------------------------------------------
-// Role → default permissions mapping (kept in sync with the rest of the app)
-// ---------------------------------------------------------------------------
-
-const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  SUPERADMIN: [
-    Permission.READ_KEY,
-    Permission.WRITE_KEY,
-    Permission.DELETE_KEY,
-    Permission.MANAGE_CONNECTION,
-    Permission.MANAGE_USERS,
-  ],
-  ADMIN: [
-    Permission.READ_KEY,
-    Permission.WRITE_KEY,
-    Permission.DELETE_KEY,
-    Permission.MANAGE_CONNECTION,
-    Permission.MANAGE_USERS,
-  ],
-  OPERATOR: [Permission.READ_KEY, Permission.WRITE_KEY, Permission.DELETE_KEY],
-  VIEWER: [Permission.READ_KEY],
-};
 
 // ---------------------------------------------------------------------------
 // Helpers
