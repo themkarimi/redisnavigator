@@ -14,8 +14,10 @@ import {
   ChevronRight,
   UserMinus,
   ServerOff,
+  Lock,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { useFeatures } from '@/hooks/useFeatures'
 import { api } from '@/services/api'
 import { useConnectionStore } from '@/store/connectionStore'
 import type { Group, UserWithRoles, UserRole } from '@/types'
@@ -308,7 +310,7 @@ function AssignConnectionDialog({ groupId, existingConnectionIds }: { groupId: s
 
 // ─── Group Row ────────────────────────────────────────────────────────────────
 
-function GroupRow({ group }: { group: Group }) {
+function GroupRow({ group, configAsCode }: { group: Group; configAsCode: boolean }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -342,16 +344,18 @@ function GroupRow({ group }: { group: Group }) {
             <div className="flex items-center gap-3">
               <Badge variant="secondary" className="text-xs">{group.members.length} member{group.members.length !== 1 ? 's' : ''}</Badge>
               <Badge variant="secondary" className="text-xs">{group.connectionRoles.length} connection{group.connectionRoles.length !== 1 ? 's' : ''}</Badge>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                title="Delete group"
-                onClick={(e) => { e.stopPropagation(); deleteGroup.mutate() }}
-                disabled={deleteGroup.isPending}
-              >
-                {deleteGroup.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              </Button>
+              {!configAsCode && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  title="Delete group"
+                  onClick={(e) => { e.stopPropagation(); deleteGroup.mutate() }}
+                  disabled={deleteGroup.isPending}
+                >
+                  {deleteGroup.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </Button>
+              )}
             </div>
           </div>
         </CollapsibleTrigger>
@@ -364,7 +368,7 @@ function GroupRow({ group }: { group: Group }) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5" />Members
                 </p>
-                <AddMemberDialog groupId={group.id} existingUserIds={group.members.map((m) => m.userId)} />
+                {!configAsCode && <AddMemberDialog groupId={group.id} existingUserIds={group.members.map((m) => m.userId)} />}
               </div>
               {group.members.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-1">No members yet.</p>
@@ -376,16 +380,18 @@ function GroupRow({ group }: { group: Group }) {
                         <span className="text-sm font-medium">{m.user.name}</span>
                         <span className="text-xs text-muted-foreground ml-2">{m.user.email}</span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                        title="Remove member"
-                        onClick={() => removeMember.mutate(m.userId)}
-                        disabled={removeMember.isPending}
-                      >
-                        <UserMinus className="h-3.5 w-3.5" />
-                      </Button>
+                      {!configAsCode && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          title="Remove member"
+                          onClick={() => removeMember.mutate(m.userId)}
+                          disabled={removeMember.isPending}
+                        >
+                          <UserMinus className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -398,7 +404,7 @@ function GroupRow({ group }: { group: Group }) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                   <ServerOff className="h-3.5 w-3.5" />Connection Access
                 </p>
-                <AssignConnectionDialog groupId={group.id} existingConnectionIds={group.connectionRoles.map((cr) => cr.connectionId)} />
+                {!configAsCode && <AssignConnectionDialog groupId={group.id} existingConnectionIds={group.connectionRoles.map((cr) => cr.connectionId)} />}
               </div>
               {group.connectionRoles.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-1">No connection access assigned.</p>
@@ -412,16 +418,18 @@ function GroupRow({ group }: { group: Group }) {
                           {cr.role}
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                        title="Remove connection access"
-                        onClick={() => removeConnection.mutate(cr.connectionId)}
-                        disabled={removeConnection.isPending}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {!configAsCode && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          title="Remove connection access"
+                          onClick={() => removeConnection.mutate(cr.connectionId)}
+                          disabled={removeConnection.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -439,6 +447,9 @@ function GroupRow({ group }: { group: Group }) {
 export default function GroupsPage() {
   const currentUser = useAuthStore((s) => s.user)
   const canAccess = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN'
+
+  const { data: features } = useFeatures()
+  const configAsCode = features?.configAsCode ?? false
 
   const { data: groups, isLoading, isError } = useQuery<Group[]>({
     queryKey: ['groups'],
@@ -460,6 +471,17 @@ export default function GroupsPage() {
 
   return (
     <div className="p-6">
+      {/* Config-as-code notice */}
+      {configAsCode && (
+        <div role="alert" className="flex items-center gap-2 mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+          <Lock className="w-4 h-4 shrink-0" />
+          <span>
+            This instance is running in <strong>config-as-code</strong> mode. Groups are managed
+            via the configuration file and cannot be created, edited, or deleted from the UI.
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Group Management</h1>
@@ -467,7 +489,7 @@ export default function GroupsPage() {
             Organize users into groups and grant them shared access to Redis connections.
           </p>
         </div>
-        <CreateGroupDialog />
+        {!configAsCode && <CreateGroupDialog />}
       </div>
 
       {isLoading ? (
@@ -486,7 +508,7 @@ export default function GroupsPage() {
       ) : (
         <div className="space-y-3">
           {groups.map((group) => (
-            <GroupRow key={group.id} group={group} />
+            <GroupRow key={group.id} group={group} configAsCode={configAsCode} />
           ))}
         </div>
       )}
