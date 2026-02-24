@@ -27,7 +27,7 @@ import { signAccessToken } from '../utils/jwt';
 
 describe('POST /auth/change-password', () => {
   const userId = 'test-user-id';
-  const email = 'admin@redisgui.local';
+  const email = 'admin@redisnavigator.local';
   const currentPassword = 'oldpassword123';
   const newPassword = 'newpassword456';
 
