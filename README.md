@@ -1,4 +1,4 @@
-# RedisGUI
+# RedisNavigator
 
 > A full-stack Redis management GUI — an open-source RedisInsight alternative
 

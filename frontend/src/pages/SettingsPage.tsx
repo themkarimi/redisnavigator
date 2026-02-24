@@ -50,7 +50,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
               <CardDescription>
-                Customize how RedisGUI looks on your device.
+                Customize how RedisNavigator looks on your device.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -250,7 +250,7 @@ export default function SettingsPage() {
         <TabsContent value="about">
           <Card>
             <CardHeader>
-              <CardTitle>About RedisGUI</CardTitle>
+              <CardTitle>About RedisNavigator</CardTitle>
               <CardDescription>Application information and resources.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -259,7 +259,7 @@ export default function SettingsPage() {
                   R
                 </div>
                 <div>
-                  <p className="font-semibold text-base">RedisGUI</p>
+                  <p className="font-semibold text-base">RedisNavigator</p>
                   <p className="text-sm text-muted-foreground">Version 1.0.0</p>
                 </div>
               </div>
