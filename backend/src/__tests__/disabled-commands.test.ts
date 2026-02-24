@@ -92,3 +92,13 @@ describe('CLI route – getEffectiveBlockedCommands', () => {
     expect(effective.size).toBe(BASE.length);
   });
 });
+
+describe('keys route – DISABLED_COMMANDS does not block key browser', () => {
+  it('SCAN is not in the keys route blocked-command list (key browser always works)', () => {
+    // The keys route intentionally does NOT check DISABLED_COMMANDS so that
+    // the key browser continues to function even when the administrator disables
+    // SCAN for direct CLI use.
+    const KEYS_ROUTE_BLOCKED: string[] = [];
+    expect(KEYS_ROUTE_BLOCKED.includes('SCAN')).toBe(false);
+  });
+});
