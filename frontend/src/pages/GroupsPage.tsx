@@ -14,7 +14,6 @@ import {
   ChevronRight,
   UserMinus,
   ServerOff,
-  Lock,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useFeatures } from '@/hooks/useFeatures'
@@ -471,17 +470,6 @@ export default function GroupsPage() {
 
   return (
     <div className="p-6">
-      {/* Config-as-code notice */}
-      {configAsCode && (
-        <div role="alert" className="flex items-center gap-2 mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-          <Lock className="w-4 h-4 shrink-0" />
-          <span>
-            This instance is running in <strong>config-as-code</strong> mode. Groups are managed
-            via the configuration file and cannot be created, edited, or deleted from the UI.
-          </span>
-        </div>
-      )}
-
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Group Management</h1>
