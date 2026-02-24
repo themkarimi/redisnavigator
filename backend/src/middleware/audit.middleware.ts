@@ -10,6 +10,7 @@ export function auditLog(action: AuditAction) {
     const originalJson = res.json.bind(res);
     res.json = (body: unknown) => {
       if (res.statusCode < 400 && req.user) {
+        const { userId } = req.user;
         const connectionId = req.params.id || req.params.connectionId;
         const rawKey = req.params.key
           ? decodeURIComponent(req.params.key)
@@ -25,7 +26,7 @@ export function auditLog(action: AuditAction) {
 
         prisma.auditLog.create({
           data: {
-            userId: req.user.userId,
+            userId,
             connectionId: connectionId || null,
             action,
             resourceKey: maskedKey,
@@ -37,7 +38,7 @@ export function auditLog(action: AuditAction) {
           logger.info('audit', {
             auditId: record.id,
             action,
-            userId: req.user.userId,
+            userId,
             connectionId: connectionId || null,
             resourceKey: maskedKey,
             ipAddress: req.ip,
