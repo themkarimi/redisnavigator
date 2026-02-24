@@ -21,4 +21,8 @@ export const env = {
   OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI || 'http://localhost:4000/api/auth/oidc/callback',
   CONFIG_FILE: process.env.CONFIG_FILE || '',
   CONFIG_AS_CODE: !!process.env.CONFIG_FILE,
+  DISABLED_COMMANDS: (process.env.DISABLED_COMMANDS || '')
+    .split(',')
+    .map((c) => c.trim().toUpperCase())
+    .filter(Boolean),
 };
