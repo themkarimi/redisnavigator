@@ -1,4 +1,4 @@
-# RedisGUI
+# RedisNavigator
 
 > A full-stack Redis management GUI — an open-source RedisInsight alternative
 
@@ -114,11 +114,11 @@ See [`backend/config.example.yaml`](backend/config.example.yaml) for a fully ann
 
 ## Helm Deployment
 
-A Helm chart is available under [`helm/redis-gui`](helm/redis-gui) for Kubernetes deployments.
+A Helm chart is available under [`helm/redis-navigator`](helm/redis-navigator) for Kubernetes deployments.
 
 ```bash
 # Install with default values (adjust as needed)
-helm install redis-gui ./helm/redis-gui \
+helm install redis-navigator ./helm/redis-navigator \
   --set backend.secret.jwtAccessSecret=<secret> \
   --set backend.secret.jwtRefreshSecret=<secret> \
   --set backend.secret.encryptionKey=<32-char-key> \
@@ -127,14 +127,14 @@ helm install redis-gui ./helm/redis-gui \
   --set redisBlacklist.url=redis://<redis-host>:6379
 ```
 
-Key values in `helm/redis-gui/values.yaml`:
+Key values in `helm/redis-navigator/values.yaml`:
 
 | Key | Description |
 |-----|-------------|
-| `backend.image.repository` | Backend image (`ghcr.io/themkarimi/redis-gui-backend`) |
-| `frontend.image.repository` | Frontend image (`ghcr.io/themkarimi/redis-gui-frontend`) |
+| `backend.image.repository` | Backend image (`ghcr.io/themkarimi/redis-navigator-backend`) |
+| `frontend.image.repository` | Frontend image (`ghcr.io/themkarimi/redis-navigator-frontend`) |
 | `ingress.enabled` | Expose via Kubernetes Ingress |
-| `ingress.host` | External hostname (e.g. `redis-gui.example.com`) |
+| `ingress.host` | External hostname (e.g. `redis-navigator.example.com`) |
 | `oidc.enabled` | Enable OIDC/SSO |
 | `configFile.enabled` | Mount a config-as-code YAML into the backend |
 | `disabledCommands` | Comma-separated Redis commands to block in the CLI and key browser |

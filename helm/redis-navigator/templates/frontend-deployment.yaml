@@ -1,15 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "redis-gui.fullname" . }}-frontend
+  name: {{ include "redis-navigator.fullname" . }}-frontend
   labels:
-    {{- include "redis-gui.labels" . | nindent 4 }}
+    {{- include "redis-navigator.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
   selector:
     matchLabels:
-      {{- include "redis-gui.frontend.selectorLabels" . | nindent 6 }}
+      {{- include "redis-navigator.frontend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.frontend.podAnnotations }}
@@ -17,14 +17,14 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "redis-gui.frontend.selectorLabels" . | nindent 8 }}
+        {{- include "redis-navigator.frontend.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "redis-gui.serviceAccountName" . }}
+      serviceAccountName: {{ include "redis-navigator.serviceAccountName" . }}
       {{- with .Values.frontend.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -35,7 +35,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: {{ include "redis-gui.frontend.image" . }}
+          image: {{ include "redis-navigator.frontend.image" . }}
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           ports:
             - name: http

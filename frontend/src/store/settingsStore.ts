@@ -12,6 +12,6 @@ export const useSettingsStore = create<SettingsStore>()(
       scanCount: 100,
       setScanCount: (scanCount) => set({ scanCount }),
     }),
-    { name: 'redis-gui-settings' }
+    { name: 'redis-navigator-settings' }
   )
 );

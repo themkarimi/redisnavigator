@@ -16,6 +16,6 @@ export const useThemeStore = create<ThemeStore>()(
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
       },
     }),
-    { name: 'redis-gui-theme' }
+    { name: 'redis-navigator-theme' }
   )
 );

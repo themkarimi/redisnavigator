@@ -85,8 +85,8 @@ export function Sidebar() {
     <aside className="h-screen w-[240px] bg-gray-900 text-white flex flex-col flex-shrink-0 border-r border-gray-800">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-gray-800">
-        <img src="/favicon.svg" alt="RedisGUI logo" className="w-8 h-8" />
-        <span className="text-base font-semibold tracking-tight text-white">RedisGUI</span>
+        <img src="/favicon.svg" alt="RedisNavigator logo" className="w-8 h-8" />
+        <span className="text-base font-semibold tracking-tight text-white">RedisNavigator</span>
       </div>
 
       {/* Connection selector */}

@@ -6,9 +6,9 @@ Only rendered when configFile.enabled is true.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "redis-gui.fullname" . }}-config
+  name: {{ include "redis-navigator.fullname" . }}-config
   labels:
-    {{- include "redis-gui.labels" . | nindent 4 }}
+    {{- include "redis-navigator.labels" . | nindent 4 }}
 data:
   config.yaml: |
     {{- .Values.configFile.content | nindent 4 }}
