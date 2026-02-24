@@ -38,7 +38,7 @@ export function auditLog(action: AuditAction) {
           logger.info('audit', {
             auditId: record.id,
             action,
-            userEmail: req.user.email,
+            userEmail: req.user?.email,
             connectionId: connectionId || null,
             resourceKey: maskedKey,
             ipAddress: req.ip,
