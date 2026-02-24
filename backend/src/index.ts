@@ -14,6 +14,7 @@ import cliRoutes from './routes/cli.routes';
 import statsRoutes from './routes/stats.routes';
 import userRoutes from './routes/users.routes';
 import groupRoutes from './routes/groups.routes';
+import featuresRoutes from './routes/features.routes';
 import { setupPubSubSocket } from './sockets/pubsub.socket';
 import { setupMetricsSocket } from './sockets/metrics.socket';
 import { applyConfig } from './services/config-loader';
@@ -50,6 +51,7 @@ app.use('/api/connections', connectionRoutes);
 app.use('/api/connections/:id/keys', keyRoutes);
 app.use('/api/connections/:id/cli', cliRoutes);
 app.use('/api/connections/:id', statsRoutes);
+app.use('/api/features', featuresRoutes);
 
 // Socket.IO namespaces
 setupPubSubSocket(io);

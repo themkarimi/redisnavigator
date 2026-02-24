@@ -4,6 +4,7 @@ import rateLimit from 'express-rate-limit';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/rbac.middleware';
+import { requireConfigEditable } from '../middleware/configAsCode.middleware';
 import { auditLog } from '../middleware/audit.middleware';
 import { AuthenticatedRequest } from '../types';
 import { AuditAction, Permission, UserRole } from '@prisma/client';
@@ -60,6 +61,7 @@ router.get('/', requireRole(UserRole.ADMIN, UserRole.SUPERADMIN), async (_req: A
 router.post(
   '/',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.CREATE_GROUP),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -85,6 +87,7 @@ router.post(
 router.patch(
   '/:id',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.UPDATE_GROUP),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -105,6 +108,7 @@ router.patch(
 router.delete(
   '/:id',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.DELETE_GROUP),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -120,6 +124,7 @@ router.delete(
 router.post(
   '/:id/members',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.ADD_GROUP_MEMBER),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -148,6 +153,7 @@ router.post(
 router.delete(
   '/:id/members/:userId',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.REMOVE_GROUP_MEMBER),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -165,6 +171,7 @@ router.delete(
 router.post(
   '/:id/connections',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.ASSIGN_GROUP_CONNECTION),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -195,6 +202,7 @@ router.post(
 router.delete(
   '/:id/connections/:connectionId',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.REMOVE_GROUP_CONNECTION),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {

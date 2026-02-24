@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requirePermission, requireRole } from '../middleware/rbac.middleware';
+import { requireConfigEditable } from '../middleware/configAsCode.middleware';
 import { auditLog } from '../middleware/audit.middleware';
 import { encrypt } from '../utils/encryption';
 import { testConnection, getRedisClient, closeConnection } from '../services/redis.service';
@@ -66,6 +67,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
 router.post(
   '/',
   requireRole(UserRole.ADMIN, UserRole.SUPERADMIN),
+  requireConfigEditable,
   auditLog(AuditAction.CREATE_CONNECTION),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -115,6 +117,7 @@ router.post(
 router.patch(
   '/:id',
   requirePermission(Permission.MANAGE_CONNECTION),
+  requireConfigEditable,
   auditLog(AuditAction.UPDATE_CONNECTION),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
@@ -147,6 +150,7 @@ router.patch(
 router.delete(
   '/:id',
   requirePermission(Permission.MANAGE_CONNECTION),
+  requireConfigEditable,
   auditLog(AuditAction.DELETE_CONNECTION),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
