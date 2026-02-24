@@ -25,7 +25,7 @@ export const useAuthStore = create<AuthStore>()(
         set({ user: null, accessToken: null, isAuthenticated: false }),
     }),
     {
-      name: 'redis-gui-auth',
+      name: 'redis-navigator-auth',
       partialize: (state) => ({ user: state.user, accessToken: state.accessToken, isAuthenticated: state.isAuthenticated }),
     }
   )

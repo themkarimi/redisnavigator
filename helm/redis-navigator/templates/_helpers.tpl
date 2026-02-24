@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "redis-gui.name" -}}
+{{- define "redis-navigator.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "redis-gui.fullname" -}}
+{{- define "redis-navigator.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart label value.
 */}}
-{{- define "redis-gui.chart" -}}
+{{- define "redis-navigator.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels shared by all resources.
 */}}
-{{- define "redis-gui.labels" -}}
-helm.sh/chart: {{ include "redis-gui.chart" . }}
-{{ include "redis-gui.selectorLabels" . }}
+{{- define "redis-navigator.labels" -}}
+helm.sh/chart: {{ include "redis-navigator.chart" . }}
+{{ include "redis-navigator.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,33 +43,33 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels.
 */}}
-{{- define "redis-gui.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "redis-gui.name" . }}
+{{- define "redis-navigator.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "redis-navigator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Backend-specific selector labels.
 */}}
-{{- define "redis-gui.backend.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "redis-gui.name" . }}-backend
+{{- define "redis-navigator.backend.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "redis-navigator.name" . }}-backend
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Frontend-specific selector labels.
 */}}
-{{- define "redis-gui.frontend.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "redis-gui.name" . }}-frontend
+{{- define "redis-navigator.frontend.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "redis-navigator.name" . }}-frontend
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 ServiceAccount name.
 */}}
-{{- define "redis-gui.serviceAccountName" -}}
+{{- define "redis-navigator.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "redis-gui.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "redis-navigator.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -78,7 +78,7 @@ ServiceAccount name.
 {{/*
 Backend image (repository:tag).
 */}}
-{{- define "redis-gui.backend.image" -}}
+{{- define "redis-navigator.backend.image" -}}
 {{- $tag := .Values.backend.image.tag | default .Chart.AppVersion }}
 {{- printf "%s:%s" .Values.backend.image.repository $tag }}
 {{- end }}
@@ -86,7 +86,7 @@ Backend image (repository:tag).
 {{/*
 Frontend image (repository:tag).
 */}}
-{{- define "redis-gui.frontend.image" -}}
+{{- define "redis-navigator.frontend.image" -}}
 {{- $tag := .Values.frontend.image.tag | default .Chart.AppVersion }}
 {{- printf "%s:%s" .Values.frontend.image.repository $tag }}
 {{- end }}
@@ -94,46 +94,46 @@ Frontend image (repository:tag).
 {{/*
 Name of the Secret that holds backend sensitive env vars.
 */}}
-{{- define "redis-gui.backend.secretName" -}}
+{{- define "redis-navigator.backend.secretName" -}}
 {{- if .Values.backend.existingSecret }}
 {{- .Values.backend.existingSecret }}
 {{- else }}
-{{- printf "%s-backend" (include "redis-gui.fullname" .) }}
+{{- printf "%s-backend" (include "redis-navigator.fullname" .) }}
 {{- end }}
 {{- end }}
 
 {{/*
 Name of the Secret that holds the database URL.
 */}}
-{{- define "redis-gui.database.secretName" -}}
+{{- define "redis-navigator.database.secretName" -}}
 {{- if .Values.externalDatabase.existingSecret }}
 {{- .Values.externalDatabase.existingSecret }}
 {{- else }}
-{{- printf "%s-database" (include "redis-gui.fullname" .) }}
+{{- printf "%s-database" (include "redis-navigator.fullname" .) }}
 {{- end }}
 {{- end }}
 
 {{/*
 Key within the database secret that contains the DSN.
 */}}
-{{- define "redis-gui.database.secretKey" -}}
+{{- define "redis-navigator.database.secretKey" -}}
 {{- default "DATABASE_URL" .Values.externalDatabase.existingSecretKey }}
 {{- end }}
 
 {{/*
 Name of the Secret that holds the OIDC client secret.
 */}}
-{{- define "redis-gui.oidc.secretName" -}}
+{{- define "redis-navigator.oidc.secretName" -}}
 {{- if .Values.oidc.existingSecret }}
 {{- .Values.oidc.existingSecret }}
 {{- else }}
-{{- include "redis-gui.backend.secretName" . }}
+{{- include "redis-navigator.backend.secretName" . }}
 {{- end }}
 {{- end }}
 
 {{/*
 Key within the OIDC secret that contains the client secret.
 */}}
-{{- define "redis-gui.oidc.secretKey" -}}
+{{- define "redis-navigator.oidc.secretKey" -}}
 {{- default "OIDC_CLIENT_SECRET" .Values.oidc.existingSecretKey }}
 {{- end }}
