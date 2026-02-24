@@ -1102,7 +1102,7 @@ export default function KeyBrowserPage() {
   const [scanCursor, setScanCursor]         = useState('0')
   const [hasMore, setHasMore]               = useState(false)
   const [isLoading, setIsLoading]           = useState(false)
-  const [isError, setIsError]               = useState(false)
+  const [errorMessage, setErrorMessage]     = useState<string | null>(null)
   const [isScanningMore, setIsScanningMore] = useState(false)
   const [reloadTrigger, setReloadTrigger]   = useState(0)
   const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
@@ -1119,7 +1119,7 @@ export default function KeyBrowserPage() {
     if (!connectionId) return
     let cancelled = false
     setIsLoading(true)
-    setIsError(false)
+    setErrorMessage(null)
     setKeys([])
     setScanCursor('0')
     setHasMore(false)
@@ -1133,9 +1133,9 @@ export default function KeyBrowserPage() {
         setHasMore(data.cursor !== '0')
         setIsLoading(false)
       }
-    }).catch(() => {
+    }).catch((err) => {
       if (!cancelled) {
-        setIsError(true)
+        setErrorMessage(getApiErrorMessage(err, 'Failed to load keys.'))
         setIsLoading(false)
       }
     })
@@ -1299,10 +1299,10 @@ export default function KeyBrowserPage() {
 
         {/* Keys */}
         <ScrollArea className="flex-1">
-          {isError && (
-            <p className="text-xs text-destructive px-3 py-4 text-center">Failed to load keys.</p>
+          {errorMessage && (
+            <p className="text-xs text-destructive px-3 py-4 text-center">{errorMessage}</p>
           )}
-          {!isLoading && !isError && keys.length === 0 && (
+          {!isLoading && !errorMessage && keys.length === 0 && (
             <div className="flex flex-col items-center justify-center py-14 gap-2 text-muted-foreground">
               <Key className="w-8 h-8 opacity-30" />
               <p className="text-xs text-center px-4">
