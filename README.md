@@ -32,8 +32,8 @@
 
 ```bash
 # 1. Clone and enter project
-git clone https://github.com/themkarimi/redis-gui.git
-cd redis-gui
+git clone https://github.com/themkarimi/redisnavigator.git
+cd redisnavigator
 
 # 2. Configure environment
 cp backend/.env.example backend/.env
