@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Lock,
 } from 'lucide-react'
 import {
   useConnections,
@@ -20,6 +21,7 @@ import {
   useTestConnection,
   useTestExistingConnection,
 } from '@/hooks/useConnections'
+import { useFeatures } from '@/hooks/useFeatures'
 import { useConnectionStore } from '@/store/connectionStore'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
@@ -95,12 +97,16 @@ export default function ConnectionsPage() {
   const testConnection = useTestConnection()
   const testExistingConnection = useTestExistingConnection()
 
+  // Feature flags
+  const { data: features } = useFeatures()
+  const configAsCode = features?.configAsCode ?? false
+
   // Global connection store
   const { activeConnectionId, setActiveConnection } = useConnectionStore()
 
   // Check if the current user can create/edit connections
   const user = useAuthStore((s) => s.user)
-  const canManageConnections = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'
+  const canManageConnections = !configAsCode && (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -214,6 +220,18 @@ export default function ConnectionsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {/* Config-as-code notice */}
+      {configAsCode && (
+        <div role="alert" className="flex items-center gap-2 mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+          <Lock className="w-4 h-4 shrink-0" />
+          <span>
+            This instance is running in <strong>config-as-code</strong> mode. Connections are
+            managed via the configuration file and cannot be created, edited, or deleted from the
+            UI.
+          </span>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
