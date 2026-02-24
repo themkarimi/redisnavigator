@@ -88,7 +88,7 @@ export default function RegisterPage() {
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
           <img src="/logo.png" alt="Logo" className="h-24 mb-3" />
-          <h1 className="text-2xl font-bold text-white tracking-tight">RedisGUI</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">RedisNavigator</h1>
           <p className="text-gray-400 text-sm mt-1">Visual Redis management tool</p>
         </div>
 
