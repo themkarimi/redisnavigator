@@ -11,8 +11,6 @@ export const env = {
   JWT_ACCESS_EXPIRES_IN_SECONDS: 15 * 60,
   JWT_REFRESH_EXPIRES_IN: '7d',
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || 'fallback_32_char_key_change_me!!',
-  REDIS_BLACKLIST_URL: process.env.REDIS_BLACKLIST_URL || 'redis://localhost:6379',
-  REDIS_BLACKLIST_PASSWORD: process.env.REDIS_BLACKLIST_PASSWORD || undefined,
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   BCRYPT_ROUNDS: 12,
   OIDC_ENABLED: process.env.OIDC_ENABLED === 'true',
