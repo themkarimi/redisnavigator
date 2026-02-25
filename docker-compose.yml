@@ -38,8 +38,6 @@ services:
       JWT_ACCESS_SECRET: f0508aa7d4ce58703cc6ed3ae400a40b1bace075cde5685cf3ad7d2ee3e50b57
       JWT_REFRESH_SECRET: f65e189cf67c0cbf62603d9b0b4c44eb24e2781ba52f7b221963f47bc502c327
       ENCRYPTION_KEY: 9a08b1641705eba6b2bfb1295430c5bf37a3811d9eae238956c76b9c4039e3ec
-      REDIS_BLACKLIST_URL: redis://redis-sample:6379
-      REDIS_BLACKLIST_PASSWORD: samplepassword
       PORT: 4000
       FRONTEND_URL: http://localhost:3000
       OIDC_ENABLED: "true"
