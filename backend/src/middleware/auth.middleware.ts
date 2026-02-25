@@ -1,6 +1,5 @@
 import { Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
-import { isTokenBlacklisted } from '../utils/redisBlacklist';
 import { AuthenticatedRequest } from '../types';
 import { prisma } from '../config/prisma';
 
@@ -17,11 +16,6 @@ export async function authMiddleware(
     }
 
     const token = authHeader.split(' ')[1];
-
-    if (await isTokenBlacklisted(token)) {
-      res.status(401).json({ error: 'Token has been revoked' });
-      return;
-    }
 
     const payload = verifyAccessToken(token);
 
