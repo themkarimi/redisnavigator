@@ -5,7 +5,6 @@ import rateLimit from 'express-rate-limit';
 import { generators } from 'openid-client';
 import { prisma } from '../config/prisma';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
-import { blacklistToken } from '../utils/redisBlacklist';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { AuthenticatedRequest } from '../types';
 import { env } from '../config/env';
@@ -17,7 +16,6 @@ const router = Router();
 
 const REFRESH_TOKEN_DAYS = 7;
 const REFRESH_TOKEN_MAX_AGE_MS = REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000;
-const ACCESS_TOKEN_BLACKLIST_TTL_SECONDS = env.JWT_ACCESS_EXPIRES_IN_SECONDS;
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -222,12 +220,6 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Re
         where: { token, userId: req.user!.userId },
         data: { isRevoked: true },
       });
-    }
-
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      const accessToken = authHeader.split(' ')[1];
-      await blacklistToken(accessToken, ACCESS_TOKEN_BLACKLIST_TTL_SECONDS);
     }
 
     await prisma.auditLog.create({

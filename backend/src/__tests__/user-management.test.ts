@@ -14,10 +14,6 @@ jest.mock('../config/prisma', () => ({
   },
 }));
 
-jest.mock('../utils/redisBlacklist', () => ({
-  isTokenBlacklisted: jest.fn().mockResolvedValue(false),
-}));
-
 import { prisma } from '../config/prisma';
 import { signAccessToken } from '../utils/jwt';
 

@@ -27,10 +27,6 @@ jest.mock('../config/prisma', () => ({
     userConnectionRole: { findMany: jest.fn().mockResolvedValue([]) },
   },
 }));
-jest.mock('../utils/redisBlacklist', () => ({
-  blacklistToken: jest.fn(),
-  isTokenBlacklisted: jest.fn().mockResolvedValue(false),
-}));
 
 function makeRes(): Partial<Response> {
   const res: Partial<Response> = {};
