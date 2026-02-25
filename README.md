@@ -76,8 +76,6 @@ npm run dev
 | `JWT_ACCESS_SECRET` | Access token signing secret | - |
 | `JWT_REFRESH_SECRET` | Refresh token signing secret | - |
 | `ENCRYPTION_KEY` | 32-char AES-256 key for credentials | - |
-| `REDIS_BLACKLIST_URL` | Redis URL for token blacklist | - |
-| `REDIS_BLACKLIST_PASSWORD` | Redis password for token blacklist | - |
 | `FRONTEND_URL` | Frontend origin (used for CORS) | `http://localhost:3000` |
 | `OIDC_ENABLED` | Enable OIDC/SSO login | `false` |
 | `OIDC_ISSUER_URL` | OIDC provider issuer URL | - |
@@ -123,8 +121,7 @@ helm install redis-navigator ./helm/redis-navigator \
   --set backend.secret.jwtRefreshSecret=<secret> \
   --set backend.secret.encryptionKey=<32-char-key> \
   --set externalDatabase.host=<postgres-host> \
-  --set externalDatabase.password=<db-password> \
-  --set redisBlacklist.url=redis://<redis-host>:6379
+  --set externalDatabase.password=<db-password>
 ```
 
 Key values in `helm/redis-navigator/values.yaml`:

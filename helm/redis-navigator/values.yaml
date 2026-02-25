@@ -97,15 +97,6 @@ externalDatabase:
   existingSecretKey: "DATABASE_URL"
 
 # ---------------------------------------------------------------------------
-# Redis used for JWT token blacklist
-# ---------------------------------------------------------------------------
-redisBlacklist:
-  # Full Redis URL, e.g. redis://my-redis:6379
-  url: "redis://redis:6379"
-  # Redis password (leave empty if none)
-  password: ""
-
-# ---------------------------------------------------------------------------
 # OIDC / SSO (optional)
 # ---------------------------------------------------------------------------
 oidc:
