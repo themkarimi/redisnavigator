@@ -43,7 +43,7 @@ services:
       PORT: 4000
       FRONTEND_URL: http://localhost:3000
       OIDC_ENABLED: "true"
-      OIDC_ISSUER_URL: "https://iam.khadg.com/realms/bitpin-tech-iam"
+      OIDC_ISSUER_URL: "https://iam.example.com/realms/example-realm"
       OIDC_CLIENT_ID: "redisnavigator"
       OIDC_CLIENT_SECRET: "9a08b1641705eba6b2bfb1295430c5bf37a381"
       OIDC_REDIRECT_URI: http://localhost:4000/api/auth/oidc/callback
