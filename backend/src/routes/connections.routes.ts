@@ -118,7 +118,7 @@ router.patch(
   '/:id',
   requirePermission(Permission.MANAGE_CONNECTION),
   requireConfigEditable,
-  auditLog(AuditAction.UPDATE_CONNECTION),
+  auditLog(AuditAction.UPDATE_CONNECTION, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const data = connectionSchema.partial().parse(req.body);
@@ -151,7 +151,7 @@ router.delete(
   '/:id',
   requirePermission(Permission.MANAGE_CONNECTION),
   requireConfigEditable,
-  auditLog(AuditAction.DELETE_CONNECTION),
+  auditLog(AuditAction.DELETE_CONNECTION, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       await closeConnection(req.params.id);

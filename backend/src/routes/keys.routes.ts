@@ -72,7 +72,7 @@ router.get(
 router.get(
   '/:key',
   requirePermission(Permission.READ_KEY),
-  auditLog(AuditAction.READ_KEY),
+  auditLog(AuditAction.READ_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
@@ -133,7 +133,7 @@ const setKeySchema = z.object({
 router.post(
   '/',
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
@@ -160,7 +160,7 @@ router.put(
   '/:key',
   keysLimiter,
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
@@ -191,7 +191,7 @@ router.put(
   '/:key/fields/:field',
   keysLimiter,
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
@@ -214,7 +214,7 @@ router.delete(
   '/:key/fields/:field',
   keysLimiter,
   requirePermission(Permission.DELETE_KEY),
-  auditLog(AuditAction.DELETE_KEY),
+  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
@@ -235,7 +235,7 @@ router.delete(
 router.patch(
   '/:key',
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
@@ -285,7 +285,7 @@ router.patch(
 router.delete(
   '/:key',
   requirePermission(Permission.DELETE_KEY),
-  auditLog(AuditAction.DELETE_KEY),
+  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);
@@ -328,7 +328,7 @@ router.post(
   '/delete-by-pattern',
   keysLimiter,
   requirePermission(Permission.DELETE_KEY),
-  auditLog(AuditAction.DELETE_KEY),
+  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await getConnection(req.params.id);

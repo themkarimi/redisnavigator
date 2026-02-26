@@ -26,7 +26,7 @@ const cliSchema = z.object({
 router.post(
   '/',
   requirePermission(Permission.READ_KEY),
-  auditLog(AuditAction.EXECUTE_CLI),
+  auditLog(AuditAction.EXECUTE_CLI, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const { command } = cliSchema.parse(req.body);

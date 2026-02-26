@@ -45,7 +45,7 @@ services:
       OIDC_CLIENT_ID: "redisnavigator"
       OIDC_CLIENT_SECRET: "9a08b1641705eba6b2bfb1295430c5bf37a381"
       OIDC_REDIRECT_URI: http://localhost:4000/api/auth/oidc/callback
-      CONFIG_FILE: /app/config.yaml
+      # CONFIG_FILE: /app/config.yaml
       DISABLED_COMMANDS: SCAN,FLUSHDB
     volumes:
       - ./backend/config.yaml:/app/config.yaml:ro

@@ -5,13 +5,16 @@ import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '../types';
 import { maskKey } from '../utils/maskKey';
 
-export function auditLog(action: AuditAction) {
+export function auditLog(
+  action: AuditAction,
+  getConnectionId?: (req: AuthenticatedRequest) => string | null | undefined,
+) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     const originalJson = res.json.bind(res);
     res.json = (body: unknown) => {
       if (res.statusCode < 400 && req.user) {
         const { userId } = req.user;
-        const connectionId = req.params.id || req.params.connectionId;
+        const connectionId = getConnectionId ? getConnectionId(req) : null;
         const rawKey = req.params.key
           ? decodeURIComponent(req.params.key)
           : (req.body as { key?: string })?.key;

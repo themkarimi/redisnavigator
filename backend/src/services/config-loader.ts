@@ -93,6 +93,11 @@ export async function applyConfig(filePath: string): Promise<void> {
     return;
   }
 
+  if (!fs.statSync(filePath).isFile()) {
+    logger.error(`config-loader: path "${filePath}" is not a file (got a directory?), skipping`);
+    return;
+  }
+
   const raw = fs.readFileSync(filePath, 'utf8');
   const parsed = yaml.load(raw) as YamlConfig;
 
