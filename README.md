@@ -145,5 +145,6 @@ npm test
 On first startup, a default SuperAdmin user is created with the following credentials:
 - Username: `admin@redisnavigator.local`
 - Password: `Admin123!`
+recommended to change this password immediately after logging in.
 ## License
 MIT
