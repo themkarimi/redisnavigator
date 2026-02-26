@@ -37,8 +37,8 @@ const createUserSchema = z.object({
   email: z.string().email('Enter a valid email'),
   name: z.string().min(1, 'Enter a name'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['ADMIN', 'OPERATOR', 'VIEWER'] as const),
-  connectionId: z.string().min(1, 'Select a connection'),
+  role: z.enum(['ADMIN', 'OPERATOR', 'VIEWER'] as const).optional(),
+  connectionId: z.string().optional(),
 })
 
 type CreateUserFormValues = z.infer<typeof createUserSchema>
@@ -104,7 +104,7 @@ function CreateUserDialog() {
         <DialogHeader>
           <DialogTitle>Create User</DialogTitle>
           <DialogDescription>
-            Create a new local user and grant access to a Redis connection.
+            Create a new local user. Optionally grant access to a Redis connection.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,7 +149,7 @@ function CreateUserDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="create-connection">Connection</Label>
+            <Label htmlFor="create-connection">Connection <span className="text-muted-foreground font-normal">(Optional)</span></Label>
             <Controller
               name="connectionId"
               control={control}
@@ -174,7 +174,7 @@ function CreateUserDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="create-role">Role</Label>
+            <Label htmlFor="create-role">Role <span className="text-muted-foreground font-normal">(Optional)</span></Label>
             <Controller
               name="role"
               control={control}
