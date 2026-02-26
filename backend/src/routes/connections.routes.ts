@@ -45,7 +45,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
         orderBy: { createdAt: 'desc' },
       });
     } else {
-      const connectionIds = userRoles.map(r => r.connectionId);
+      const connectionIds = userRoles.map(r => r.connectionId).filter((id): id is string => id !== null);
       const ownedConnections = await prisma.redisConnection.findMany({
         where: { ownerId: req.user!.userId, isActive: true },
       });
