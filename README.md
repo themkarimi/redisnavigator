@@ -141,6 +141,9 @@ Key values in `helm/redis-navigator/values.yaml`:
 cd backend
 npm test
 ```
-
+## Default Admin User
+On first startup, a default SuperAdmin user is created with the following credentials:
+- Username: `admin@redisnavigator.local`
+- Password: `Admin123!`
 ## License
 MIT
