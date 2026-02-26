@@ -110,15 +110,15 @@ model RedisConnection {
 }
 
 model UserConnectionRole {
-  id           String          @id @default(cuid())
+  id           String           @id @default(cuid())
   userId       String
-  connectionId String
+  connectionId String?
   role         UserRole
   permissions  Permission[]
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  connection   RedisConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection   RedisConnection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   @@unique([userId, connectionId])
   @@index([userId])
