@@ -53,9 +53,26 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
         where: { id: { in: connectionIds }, isActive: true },
         include: { owner: { select: { id: true, name: true, email: true } } },
       });
-      connections = [...ownedConnections, ...assignedConnections].filter(
-        (c, i, arr) => arr.findIndex(x => x.id === c.id) === i
-      );
+      const groupConnections = await prisma.redisConnection.findMany({
+        where: {
+          isActive: true,
+          groupRoles: {
+            some: {
+              group: {
+                members: {
+                  some: { userId: req.user!.userId },
+                },
+              },
+            },
+          },
+        },
+        include: { owner: { select: { id: true, name: true, email: true } } },
+      });
+      const seen = new Map<string, typeof ownedConnections[0]>();
+      for (const c of [...ownedConnections, ...assignedConnections, ...groupConnections]) {
+        if (!seen.has(c.id)) seen.set(c.id, c);
+      }
+      connections = Array.from(seen.values());
     }
 
     res.json(connections.map(c => ({ ...c, passwordEnc: undefined })));

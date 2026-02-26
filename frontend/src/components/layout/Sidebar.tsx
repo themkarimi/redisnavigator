@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { useConnectionStore } from '@/store/connectionStore'
 import { useThemeStore } from '@/store/themeStore'
@@ -45,6 +46,7 @@ export function Sidebar() {
 
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const queryClient = useQueryClient()
 
   const connections = useConnectionStore((s) => s.connections)
   const activeConnectionId = useConnectionStore((s) => s.activeConnectionId)
@@ -68,6 +70,7 @@ export function Sidebar() {
     } catch {
       // swallow errors — proceed with client-side logout regardless
     }
+    queryClient.removeQueries({ queryKey: ['connections'] })
     logout()
     navigate('/login')
   }
