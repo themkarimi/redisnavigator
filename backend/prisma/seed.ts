@@ -1,6 +1,5 @@
 import { PrismaClient, UserRole, Permission } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { encrypt } from '../src/utils/encryption';
 
 const prisma = new PrismaClient();
 
@@ -23,51 +22,29 @@ async function main() {
 
   console.log(`✅ Admin user: ${admin.email}`);
 
-  // Create a sample connection so the SUPERADMIN role can be assigned
-  // (UserConnectionRole requires a connectionId FK)
-  let sampleConnection = await prisma.redisConnection.findFirst({
-    where: { ownerId: admin.id, name: 'Sample Redis (localhost)' },
+  // Assign SUPERADMIN role — requirePermission middleware checks for
+  // ANY UserConnectionRole row with role=SUPERADMIN (no connectionId filter),
+  // so one global entry (connectionId = null) is enough.
+  const existingSuperAdminRole = await prisma.userConnectionRole.findFirst({
+    where: { userId: admin.id, role: UserRole.SUPERADMIN },
   });
 
-  if (!sampleConnection) {
-    sampleConnection = await prisma.redisConnection.create({
+  if (!existingSuperAdminRole) {
+    await prisma.userConnectionRole.create({
       data: {
-        name: 'Sample Redis (localhost)',
-        host: 'redis-sample',
-        port: 6379,
-        passwordEnc: encrypt('samplepassword'),
-        ownerId: admin.id,
-        isActive: true,
+        userId: admin.id,
+        connectionId: null,
+        role: UserRole.SUPERADMIN,
+        permissions: [
+          Permission.READ_KEY,
+          Permission.WRITE_KEY,
+          Permission.DELETE_KEY,
+          Permission.MANAGE_CONNECTION,
+          Permission.MANAGE_USERS,
+        ],
       },
     });
   }
-
-  console.log(`✅ Sample connection: ${sampleConnection.name}`);
-
-  // Assign SUPERADMIN role — requirePermission middleware checks for
-  // ANY UserConnectionRole row with role=SUPERADMIN (no connectionId filter),
-  // so one entry is enough to grant global superadmin access.
-  await prisma.userConnectionRole.upsert({
-    where: {
-      userId_connectionId: {
-        userId: admin.id,
-        connectionId: sampleConnection.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: admin.id,
-      connectionId: sampleConnection.id,
-      role: UserRole.SUPERADMIN,
-      permissions: [
-        Permission.READ_KEY,
-        Permission.WRITE_KEY,
-        Permission.DELETE_KEY,
-        Permission.MANAGE_CONNECTION,
-        Permission.MANAGE_USERS,
-      ],
-    },
-  });
 }
 
 main()

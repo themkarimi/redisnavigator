@@ -106,14 +106,14 @@ export function Sidebar() {
                   value={conn.id}
                   className="focus:bg-gray-700 focus:text-white text-gray-200"
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 min-w-0">
                     <span
                       className={cn(
-                        'inline-block w-1.5 h-1.5 rounded-full',
+                        'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
                         conn.isActive ? 'bg-green-400' : 'bg-gray-500'
                       )}
                     />
-                    {conn.name}
+                    <span className="truncate">{conn.name}</span>
                   </span>
                 </SelectItem>
               ))}
