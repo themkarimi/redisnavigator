@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { isAxiosError } from 'axios'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Circle, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { api } from '@/services/api'
@@ -25,6 +25,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const setAuth = useAuthStore((s) => s.setAuth)
+  const queryClient = useQueryClient()
 
   const { data: authConfig } = useQuery({
     queryKey: ['auth-config'],
@@ -59,6 +60,7 @@ export default function LoginPage() {
         values
       )
       setAuth(data.user, data.accessToken)
+      queryClient.invalidateQueries({ queryKey: ['connections'] })
       navigate('/connections')
     } catch (err) {
       if (isAxiosError(err)) {
