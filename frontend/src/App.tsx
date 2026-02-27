@@ -6,7 +6,6 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Toaster } from '@/components/ui/toaster'
 
 const LoginPage = React.lazy(() => import('@/pages/LoginPage'))
-const RegisterPage = React.lazy(() => import('@/pages/RegisterPage'))
 const OidcCallbackPage = React.lazy(() => import('@/pages/OidcCallbackPage'))
 const ConnectionsPage = React.lazy(() => import('@/pages/ConnectionsPage'))
 const KeyBrowserPage = React.lazy(() => import('@/pages/KeyBrowserPage'))
@@ -45,7 +44,6 @@ export default function App() {
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
           <Route path="/oidc/callback" element={<OidcCallbackPage />} />
           <Route element={<PrivateRoute />}>
             <Route element={<AppLayout />}>

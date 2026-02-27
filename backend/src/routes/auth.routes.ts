@@ -34,7 +34,7 @@ const ROLE_PRIORITY: Record<UserRole, number> = {
 /**
  * Persists a new refresh token to the database and sets the refreshToken
  * cookie on the response.  Extracted to avoid duplicating the same block in
- * the register, login, and OIDC-callback handlers.
+ * the login and OIDC-callback handlers.
  */
 async function storeRefreshTokenAndSetCookie(
   userId: string,
@@ -75,53 +75,9 @@ router.get('/config', (_req: Request, res: Response): void => {
   res.json({ oidcEnabled: !!env.OIDC_ENABLED });
 });
 
-const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(100),
-  name: z.string().min(1).max(100),
-});
-
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
-});
-
-router.post('/register', authLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const data = registerSchema.parse(req.body);
-
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) {
-      res.status(409).json({ error: 'Email already registered' });
-      return;
-    }
-
-    const hashedPassword = await bcrypt.hash(data.password, env.BCRYPT_ROUNDS);
-
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        password: hashedPassword,
-        name: data.name,
-      },
-    });
-
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
-    const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
-
-    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res);
-
-    res.status(201).json({
-      accessToken,
-      user: { id: user.id, email: user.email, name: user.name, role: null },
-    });
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
-      return;
-    }
-    res.status(500).json({ error: 'Internal server error' });
-  }
 });
 
 router.post('/login', authLimiter, async (req: Request, res: Response): Promise<void> => {

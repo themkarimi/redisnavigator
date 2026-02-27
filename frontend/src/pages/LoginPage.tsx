@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -167,18 +167,6 @@ export default function LoginPage() {
                   Sign in with SSO
                 </Button>
               </>
-            )}
-
-            {!oidcEnabled && (
-              <p className="text-center text-sm text-gray-500 mt-6">
-                Don&apos;t have an account?{' '}
-                <Link
-                  to="/register"
-                  className="text-red-400 hover:text-red-300 font-medium transition-colors"
-                >
-                  Register
-                </Link>
-              </p>
             )}
           </CardContent>
         </Card>
