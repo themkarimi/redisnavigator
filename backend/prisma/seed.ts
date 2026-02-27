@@ -20,7 +20,6 @@ async function main() {
     },
   });
 
-  console.log(`✅ Admin user: ${admin.email}`);
 
   // Assign SUPERADMIN role — requirePermission middleware checks for
   // ANY UserConnectionRole row with role=SUPERADMIN (no connectionId filter),

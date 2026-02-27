@@ -70,7 +70,7 @@ export interface UserWithRoles {
   createdAt: string;
   connectionRoles: Array<{
     role: UserRole;
-    connection: { id: string; name: string };
+    connection: { id: string; name: string } | null;
   }>;
 }
 

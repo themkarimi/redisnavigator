@@ -43,20 +43,20 @@ spec:
             - name: http
               containerPort: {{ .Values.backend.port }}
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /api/health
-              port: http
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /api/health
-              port: http
-            initialDelaySeconds: 15
-            periodSeconds: 5
-            failureThreshold: 3
+          # livenessProbe:
+          #   httpGet:
+          #     path: /api/health
+          #     port: http
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          #   failureThreshold: 3
+          # readinessProbe:
+          #   httpGet:
+          #     path: /api/health
+          #     port: http
+          #   initialDelaySeconds: 15
+          #   periodSeconds: 5
+          #   failureThreshold: 3
           env:
             - name: NODE_ENV
               value: {{ .Values.backend.nodeEnv | quote }}

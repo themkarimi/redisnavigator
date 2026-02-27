@@ -31,7 +31,7 @@ spec:
                 port:
                   number: {{ .Values.service.backend.port }}
           - path: /socket.io
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: {{ $fullName }}-backend

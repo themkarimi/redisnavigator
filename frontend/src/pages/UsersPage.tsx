@@ -363,17 +363,17 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {user.connectionRoles.length === 0 ? (
+                      {user.connectionRoles.filter(cr => cr.connection != null).length === 0 ? (
                         <span className="text-muted-foreground text-xs">No roles</span>
                       ) : (
-                        user.connectionRoles.map((cr) => (
+                        user.connectionRoles.filter(cr => cr.connection != null).map((cr) => (
                           <span
-                            key={`${user.id}-${cr.connection.id}`}
+                            key={`${user.id}-${cr.connection!.id}`}
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border ${ROLE_COLORS[cr.role] ?? 'bg-gray-600 text-white'}`}
-                            title={cr.connection.name}
+                            title={cr.connection!.name}
                           >
                             {cr.role}
-                            <span className="opacity-70">· {cr.connection.name}</span>
+                            <span className="opacity-70">· {cr.connection!.name}</span>
                           </span>
                         ))
                       )}
