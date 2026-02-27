@@ -191,6 +191,10 @@ export default function MetricsPage() {
 
     socketRef.current = socket
 
+    socket.on('connect', () => {
+      socket.emit('subscribe', { connectionId })
+    })
+
     socket.on('metrics', (snap: MetricsSnapshot) => {
       setLatestMetrics(snap)
       setChartData((prev) => {
@@ -200,6 +204,7 @@ export default function MetricsPage() {
     })
 
     return () => {
+      socket.emit('unsubscribe', { connectionId })
       socket.removeAllListeners()
       socket.disconnect()
       socketRef.current = null
