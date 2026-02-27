@@ -25,12 +25,6 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import {
   Table,
   TableBody,
   TableCell,
@@ -1317,28 +1311,20 @@ export default function KeyBrowserPage() {
             </div>
           )}
           <div className="py-1">
-            <TooltipProvider delayDuration={500}>
-              {keys.map((k) => (
-                <Tooltip key={k.key}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectKey(k.key)}
-                      className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/60 transition-colors ${
-                        selectedKey === k.key ? 'bg-muted' : ''
-                      }`}
-                    >
-                      <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                      <span className="font-mono text-xs truncate flex-1 min-w-0">{k.key}</span>
-                      <TypeBadge type={k.type} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="font-mono text-xs max-w-xs break-all">
-                    {k.key}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </TooltipProvider>
+            {keys.map((k) => (
+              <button
+                key={k.key}
+                type="button"
+                onClick={() => handleSelectKey(k.key)}
+                className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/60 transition-colors ${
+                  selectedKey === k.key ? 'bg-muted' : ''
+                }`}
+              >
+                <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                <span className="font-mono text-xs truncate flex-1 min-w-0">{k.key}</span>
+                <TypeBadge type={k.type} />
+              </button>
+            ))}
           </div>
           {hasMore && (
             <div className="px-3 py-2 border-t">
