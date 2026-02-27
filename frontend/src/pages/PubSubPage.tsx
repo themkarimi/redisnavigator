@@ -164,18 +164,23 @@ export default function PubSubPage() {
       toast({ title: 'Already subscribed', description: `Already subscribed to "${ch}"` })
       return
     }
-    socketRef.current.emit('subscribe', { channel: ch })
+    socketRef.current.emit('subscribe', { connectionId, channels: [ch] })
     setActiveSubscriptions((prev) => [...prev, ch])
     setSubscribeInput('')
-  }, [subscribeInput, activeSubscriptions, toast])
+  }, [connectionId, subscribeInput, activeSubscriptions, toast])
 
   const handleUnsubscribe = useCallback(
     (channel: string) => {
       if (!socketRef.current) return
-      socketRef.current.emit('unsubscribe', { channel })
-      setActiveSubscriptions((prev) => prev.filter((c) => c !== channel))
+      const remaining = activeSubscriptions.filter((c) => c !== channel)
+      if (remaining.length > 0) {
+        socketRef.current.emit('subscribe', { connectionId, channels: remaining })
+      } else {
+        socketRef.current.emit('unsubscribe', { connectionId })
+      }
+      setActiveSubscriptions(remaining)
     },
-    []
+    [connectionId, activeSubscriptions]
   )
 
   const handlePSubscribe = useCallback(() => {
@@ -185,18 +190,23 @@ export default function PubSubPage() {
       toast({ title: 'Already subscribed', description: `Already subscribed to pattern "${pt}"` })
       return
     }
-    socketRef.current.emit('psubscribe', { pattern: pt })
+    socketRef.current.emit('psubscribe', { connectionId, patterns: [pt] })
     setActivePatterns((prev) => [...prev, pt])
     setPatternInput('')
-  }, [patternInput, activePatterns, toast])
+  }, [connectionId, patternInput, activePatterns, toast])
 
   const handlePUnsubscribe = useCallback(
     (pattern: string) => {
       if (!socketRef.current) return
-      socketRef.current.emit('punsubscribe', { pattern })
-      setActivePatterns((prev) => prev.filter((p) => p !== pattern))
+      const remainingPatterns = activePatterns.filter((p) => p !== pattern)
+      if (remainingPatterns.length > 0) {
+        socketRef.current.emit('psubscribe', { connectionId, patterns: remainingPatterns })
+      } else {
+        socketRef.current.emit('unsubscribe', { connectionId })
+      }
+      setActivePatterns(remainingPatterns)
     },
-    []
+    [connectionId, activePatterns]
   )
 
   // ---------------------------------------------------------------------------
@@ -208,7 +218,7 @@ export default function PubSubPage() {
     const msg = publishMessage.trim()
     if (!ch || !msg || !socketRef.current) return
     setIsPublishing(true)
-    socketRef.current.emit('publish', { channel: ch, message: msg })
+    socketRef.current.emit('publish', { connectionId, channel: ch, message: msg })
     // Optimistic clear
     setTimeout(() => {
       setPublishMessage('')
