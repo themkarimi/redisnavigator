@@ -1298,7 +1298,7 @@ export default function KeyBrowserPage() {
         </div>
 
         {/* Keys */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 overflow-x-hidden">
           {errorMessage && (
             <p className="text-xs text-destructive px-3 py-4 text-center">{errorMessage}</p>
           )}
@@ -1316,7 +1316,7 @@ export default function KeyBrowserPage() {
                 key={k.key}
                 type="button"
                 onClick={() => handleSelectKey(k.key)}
-                className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/60 transition-colors ${
+                className={`w-full text-left px-3 py-2 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
                   selectedKey === k.key ? 'bg-muted' : ''
                 }`}
               >
@@ -1326,21 +1326,21 @@ export default function KeyBrowserPage() {
               </button>
             ))}
           </div>
-          {hasMore && (
-            <div className="px-3 py-2 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full h-7 text-xs"
-                onClick={handleScanMore}
-                disabled={isScanningMore}
-              >
-                <ChevronDown className={`w-3.5 h-3.5 mr-1.5 ${isScanningMore ? 'animate-bounce' : ''}`} />
-                {isScanningMore ? 'Scanning…' : 'Scan More'}
-              </Button>
-            </div>
-          )}
         </ScrollArea>
+        {hasMore && (
+          <div className="px-3 py-2 border-t shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-7 text-xs"
+              onClick={handleScanMore}
+              disabled={isScanningMore}
+            >
+              <ChevronDown className={`w-3.5 h-3.5 mr-1.5 ${isScanningMore ? 'animate-bounce' : ''}`} />
+              {isScanningMore ? 'Scanning…' : 'Scan More'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ──────────────────────────────────────────────────────────────────── */}
