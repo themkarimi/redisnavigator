@@ -295,7 +295,7 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
           placeholder="Field name"
           value={newFieldName}
           onChange={(e) => setNewFieldName(e.target.value)}
-          className="h-8 text-sm font-mono"
+          className="h-8 text-sm font-mono flex-1"
           required
         />
         <Input
