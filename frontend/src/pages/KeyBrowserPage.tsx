@@ -1158,8 +1158,11 @@ export default function KeyBrowserPage() {
         const newKeys = data.keys.filter((k) => !existing.has(k.key))
         return [...prev, ...newKeys]
       })
+      // When cursor returns '0' the current cycle is complete; reset to '0' so
+      // the next click starts a fresh scan (appending any newly-added keys).
+      // Keep hasMore=true so the button stays visible for continued scanning.
       setScanCursor(data.cursor)
-      setHasMore(data.cursor !== '0')
+      setHasMore(true)
       setIsScanningMore(false)
     }).catch((err) => {
       toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to scan more keys.'), variant: 'destructive' })
