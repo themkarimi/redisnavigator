@@ -14,9 +14,9 @@ export function signAccessToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): strin
   } as jwt.SignOptions);
 }
 
-export function signRefreshToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
+export function signRefreshToken(payload: Omit<JWTPayload, 'iat' | 'exp'>, expiresInSeconds?: number): string {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
-    expiresIn: env.JWT_REFRESH_EXPIRES_IN,
+    expiresIn: expiresInSeconds ?? env.JWT_REFRESH_EXPIRES_IN,
   } as jwt.SignOptions);
 }
 

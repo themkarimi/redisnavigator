@@ -14,6 +14,7 @@ jest.mock('../config/env', () => ({
     JWT_ACCESS_EXPIRES_IN: '15m',
     JWT_ACCESS_EXPIRES_IN_SECONDS: 15 * 60,
     JWT_REFRESH_EXPIRES_IN: '7d',
+    SESSION_TIMEOUT_HOURS: 168,
     BCRYPT_ROUNDS: 4,
   },
 }));
