@@ -1227,7 +1227,7 @@ export default function KeyBrowserPage() {
       {/* ──────────────────────────────────────────────────────────────────── */}
       {/* Left panel – Key list                                               */}
       {/* ──────────────────────────────────────────────────────────────────── */}
-      <div className="w-[300px] shrink-0 border-r flex flex-col bg-background">
+      <div className="w-[300px] shrink-0 border-r flex flex-col overflow-hidden bg-background">
 
         {/* Search bar */}
         <div className="p-3 flex flex-col gap-2 border-b shrink-0">
@@ -1298,7 +1298,7 @@ export default function KeyBrowserPage() {
         </div>
 
         {/* Keys */}
-        <ScrollArea className="flex-1 overflow-x-hidden">
+        <ScrollArea className="flex-1 min-h-0 overflow-x-hidden">
           {errorMessage && (
             <p className="text-xs text-destructive px-3 py-4 text-center">{errorMessage}</p>
           )}
@@ -1310,7 +1310,7 @@ export default function KeyBrowserPage() {
               </p>
             </div>
           )}
-          <div className="py-1">
+          <div className="py-1 overflow-x-hidden">
             {keys.map((k) => (
               <button
                 key={k.key}
