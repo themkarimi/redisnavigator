@@ -49,8 +49,6 @@ services:
       DISABLED_COMMANDS: SCAN,FLUSHDB
     volumes:
       - ./backend/config.yaml:/app/config.yaml:ro
-    ports:
-      - "4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,9 +60,18 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: redis-navigator-frontend
-    ports:
-      - "3000:80"
     depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: redis-navigator-nginx
+    ports:
+      - "8888:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
       - backend
 
 volumes:
