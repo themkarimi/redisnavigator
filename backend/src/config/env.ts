@@ -10,6 +10,7 @@ export const env = {
   JWT_ACCESS_EXPIRES_IN: '15m',
   JWT_ACCESS_EXPIRES_IN_SECONDS: 15 * 60,
   JWT_REFRESH_EXPIRES_IN: '7d',
+  SESSION_TIMEOUT_HOURS: Math.max(1, parseInt(process.env.SESSION_TIMEOUT_HOURS || '168', 10) || 168),
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || 'fallback_32_char_key_change_me!!',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   BCRYPT_ROUNDS: 12,

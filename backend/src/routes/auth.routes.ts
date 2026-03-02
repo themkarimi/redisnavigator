@@ -14,9 +14,6 @@ import { logger } from '../config/logger';
 
 const router = Router();
 
-const REFRESH_TOKEN_DAYS = 7;
-const REFRESH_TOKEN_MAX_AGE_MS = REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000;
-
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -40,10 +37,8 @@ async function storeRefreshTokenAndSetCookie(
   userId: string,
   refreshToken: string,
   res: Response,
+  expiresAt: Date,
 ): Promise<void> {
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_DAYS);
-
   await prisma.refreshToken.create({
     data: { token: refreshToken, userId, expiresAt },
   });
@@ -53,7 +48,7 @@ async function storeRefreshTokenAndSetCookie(
     secure: env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: REFRESH_TOKEN_MAX_AGE_MS,
+    maxAge: Math.max(0, expiresAt.getTime() - Date.now()),
   });
 }
 
@@ -102,7 +97,9 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
     }
 
     const accessToken = signAccessToken({ userId: user.id, email: user.email });
-    const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
+    const sessionTimeoutSeconds = env.SESSION_TIMEOUT_HOURS * 3600;
+    const sessionExpiresAt = new Date(Date.now() + sessionTimeoutSeconds * 1000);
+    const refreshToken = signRefreshToken({ userId: user.id, email: user.email }, sessionTimeoutSeconds);
 
     await prisma.auditLog.create({
       data: {
@@ -113,7 +110,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
       },
     });
 
-    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res);
+    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res, sessionExpiresAt);
 
     const role = await getUserHighestRole(user.id);
     res.json({
@@ -157,9 +154,14 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
     }
 
     const newAccessToken = signAccessToken({ userId: user.id, email: user.email });
-    const newRefreshToken = signRefreshToken({ userId: user.id, email: user.email });
+    const remainingSeconds = Math.max(0, Math.floor((storedToken.expiresAt.getTime() - Date.now()) / 1000));
+    if (remainingSeconds <= 0) {
+      res.status(401).json({ error: 'Session has expired' });
+      return;
+    }
+    const newRefreshToken = signRefreshToken({ userId: user.id, email: user.email }, remainingSeconds);
 
-    await storeRefreshTokenAndSetCookie(user.id, newRefreshToken, res);
+    await storeRefreshTokenAndSetCookie(user.id, newRefreshToken, res, storedToken.expiresAt);
 
     res.json({ accessToken: newAccessToken });
   } catch {
@@ -352,7 +354,9 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
     }
 
     const accessToken = signAccessToken({ userId: user.id, email: user.email });
-    const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
+    const sessionTimeoutSeconds = env.SESSION_TIMEOUT_HOURS * 3600;
+    const sessionExpiresAt = new Date(Date.now() + sessionTimeoutSeconds * 1000);
+    const refreshToken = signRefreshToken({ userId: user.id, email: user.email }, sessionTimeoutSeconds);
 
     await prisma.auditLog.create({
       data: {
@@ -363,7 +367,7 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
       },
     });
 
-    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res);
+    await storeRefreshTokenAndSetCookie(user.id, refreshToken, res, sessionExpiresAt);
 
     const userParam = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, name: user.name, role: await getUserHighestRole(user.id), hasPassword: !!user.password }));
     res.redirect(`${env.FRONTEND_URL}/oidc/callback#access_token=${accessToken}&user=${userParam}`);
