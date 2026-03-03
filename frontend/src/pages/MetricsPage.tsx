@@ -12,7 +12,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts'
-import { useServerInfo, useSlowLog } from '@/hooks/useServerInfo'
+import { useServerInfo, useSlowLog, useClientList } from '@/hooks/useServerInfo'
 import { formatBytes, formatUptime } from '@/utils/formatBytes'
 import { useAuthStore } from '@/store/authStore'
 import { useConnectionStore } from '@/store/connectionStore'
@@ -50,6 +50,8 @@ type SlowLogEntry = {
   duration: number
   args: string[]
 }
+
+type ConnectedClient = Record<string, string>
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -176,6 +178,15 @@ export default function MetricsPage() {
 
   const slowlog: SlowLogEntry[] = Array.isArray(slowlogData) ? slowlogData : []
 
+  // Connected clients
+  const {
+    data: clientListData,
+    isLoading: clientListLoading,
+    refetch: refetchClientList,
+  } = useClientList(connectionId ?? null)
+
+  const clientList: ConnectedClient[] = Array.isArray(clientListData) ? clientListData : []
+
   // -------------------------------------------------------------------------
   // Socket lifecycle
   // -------------------------------------------------------------------------
@@ -255,7 +266,7 @@ export default function MetricsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { refetchInfo(); refetchSlowlog() }}
+            onClick={() => { refetchInfo(); refetchSlowlog(); refetchClientList() }}
             className="gap-2"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -483,7 +494,76 @@ export default function MetricsPage() {
         </section>
 
         {/* ---------------------------------------------------------------- */}
-        {/* Section 4 — Keyspace                                             */}
+        {/* Section 4 — Connected Clients                                   */}
+        {/* ---------------------------------------------------------------- */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <SectionTitle as="span">
+              Connected Clients
+              <span className="text-xs text-muted-foreground font-normal ml-2">
+                (live · refreshes every 5s)
+              </span>
+            </SectionTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchClientList()}
+              disabled={clientListLoading}
+              className="gap-2"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {clientListLoading ? 'Loading...' : 'Refresh'}
+            </Button>
+          </div>
+          <Card>
+            {clientListLoading ? (
+              <CardContent className="pt-4 pb-4 space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
+              </CardContent>
+            ) : clientList.length === 0 ? (
+              <CardContent className="pt-6 pb-6 text-center">
+                <p className="text-sm text-muted-foreground">No connected clients.</p>
+              </CardContent>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <Th>ID</Th>
+                      <Th>Address</Th>
+                      <Th>Name</Th>
+                      <Th>DB</Th>
+                      <Th>Age (s)</Th>
+                      <Th>Idle (s)</Th>
+                      <Th>Last Cmd</Th>
+                      <Th>Flags</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clientList.map((c, i) => (
+                      <tr key={c['id'] ?? i} className="border-b border-border/50 hover:bg-muted/40 transition-colors">
+                        <Td className="font-mono text-xs text-muted-foreground">{c['id'] ?? '—'}</Td>
+                        <Td className="font-mono text-xs">{c['addr'] ?? '—'}</Td>
+                        <Td className="font-mono text-xs">{c['name'] || '—'}</Td>
+                        <Td>{c['db'] ?? '—'}</Td>
+                        <Td>{c['age'] ?? '—'}</Td>
+                        <Td>{c['idle'] ?? '—'}</Td>
+                        <Td className="font-mono text-xs">{c['cmd'] ?? '—'}</Td>
+                        <Td className="font-mono text-xs">{c['flags'] ?? '—'}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Section 5 — Keyspace                                             */}
         {/* ---------------------------------------------------------------- */}
         <section>
           <SectionTitle>Keyspace</SectionTitle>
@@ -524,7 +604,7 @@ export default function MetricsPage() {
         </section>
 
         {/* ---------------------------------------------------------------- */}
-        {/* Section 5 — Slow Log                                             */}
+        {/* Section 6 — Slow Log                                             */}
         {/* ---------------------------------------------------------------- */}
         <section>
           <div className="flex items-center justify-between mb-3">

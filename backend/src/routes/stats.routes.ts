@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requirePermission } from '../middleware/rbac.middleware';
@@ -7,10 +8,18 @@ import { ConnectionAccessRequest } from '../types';
 import { Permission } from '@prisma/client';
 
 const router = Router({ mergeParams: true });
+
+const statsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { error: 'Too many requests, please try again later' },
+});
+
 router.use(authMiddleware);
 
 router.get(
   '/info',
+  statsLimiter,
   requirePermission(Permission.READ_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
@@ -74,7 +83,49 @@ router.get(
 );
 
 router.get(
+  '/clients',
+  statsLimiter,
+  requirePermission(Permission.READ_KEY),
+  async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
+    try {
+      const connection = await prisma.redisConnection.findFirst({
+        where: { id: req.params.id, isActive: true },
+      });
+
+      if (!connection) {
+        res.status(404).json({ error: 'Connection not found' });
+        return;
+      }
+
+      const client = await getRedisClient(connection);
+      const result = await client.client('LIST');
+      const list = typeof result === 'string' ? result : '';
+
+      const clients = list
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const fields: Record<string, string> = {};
+          line.trim().split(' ').forEach((pair) => {
+            const idx = pair.indexOf('=');
+            if (idx !== -1) {
+              fields[pair.slice(0, idx)] = pair.slice(idx + 1);
+            }
+          });
+          return fields;
+        });
+
+      res.json({ clients });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
+router.get(
   '/slowlog',
+  statsLimiter,
   requirePermission(Permission.READ_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
