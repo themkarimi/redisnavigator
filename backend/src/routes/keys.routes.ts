@@ -85,7 +85,10 @@ router.get(
 
       if (keyType === 'none') { res.status(404).json({ error: 'Key not found' }); return; }
 
-      const ttl = await client.ttl(key);
+      const [ttl, size] = await Promise.all([
+        client.ttl(key),
+        client.memory('USAGE', key).catch(() => null),
+      ]);
       let value: unknown;
 
       switch (keyType) {
@@ -117,7 +120,7 @@ router.get(
           value = null;
       }
 
-      res.json({ key, type: keyType, value, ttl });
+      res.json({ key, type: keyType, value, ttl, size: size ?? undefined });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
