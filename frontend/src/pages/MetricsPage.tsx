@@ -27,6 +27,7 @@ import { cn } from '@/utils/cn'
 // ---------------------------------------------------------------------------
 
 const MAX_POINTS = 60
+const CLIENT_PAGE_SIZE = 10
 
 // ---------------------------------------------------------------------------
 // Types
@@ -186,6 +187,14 @@ export default function MetricsPage() {
   } = useClientList(connectionId ?? null)
 
   const clientList: ConnectedClient[] = Array.isArray(clientListData) ? clientListData : []
+
+  // Pagination state for connected clients
+  const [clientPage, setClientPage] = useState(1)
+
+  // Reset to page 1 when client list changes
+  useEffect(() => {
+    setClientPage(1)
+  }, [clientListData])
 
   // -------------------------------------------------------------------------
   // Socket lifecycle
@@ -528,36 +537,70 @@ export default function MetricsPage() {
                 <p className="text-sm text-muted-foreground">No connected clients.</p>
               </CardContent>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <Th>ID</Th>
-                      <Th>Address</Th>
-                      <Th>Name</Th>
-                      <Th>DB</Th>
-                      <Th>Age (s)</Th>
-                      <Th>Idle (s)</Th>
-                      <Th>Last Cmd</Th>
-                      <Th>Flags</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clientList.map((c, i) => (
-                      <tr key={c['id'] ?? i} className="border-b border-border/50 hover:bg-muted/40 transition-colors">
-                        <Td className="font-mono text-xs text-muted-foreground">{c['id'] ?? '—'}</Td>
-                        <Td className="font-mono text-xs">{c['addr'] ?? '—'}</Td>
-                        <Td className="font-mono text-xs">{c['name'] || '—'}</Td>
-                        <Td>{c['db'] ?? '—'}</Td>
-                        <Td>{c['age'] ?? '—'}</Td>
-                        <Td>{c['idle'] ?? '—'}</Td>
-                        <Td className="font-mono text-xs">{c['cmd'] ?? '—'}</Td>
-                        <Td className="font-mono text-xs">{c['flags'] ?? '—'}</Td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <Th>ID</Th>
+                        <Th>Address</Th>
+                        <Th>Name</Th>
+                        <Th>DB</Th>
+                        <Th>Age (s)</Th>
+                        <Th>Idle (s)</Th>
+                        <Th>Last Cmd</Th>
+                        <Th>Flags</Th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {clientList
+                        .slice((clientPage - 1) * CLIENT_PAGE_SIZE, clientPage * CLIENT_PAGE_SIZE)
+                        .map((c, i) => (
+                          <tr key={c['id'] ?? `${clientPage}-${i}`} className="border-b border-border/50 hover:bg-muted/40 transition-colors">
+                            <Td className="font-mono text-xs text-muted-foreground">{c['id'] ?? '—'}</Td>
+                            <Td className="font-mono text-xs">{c['addr'] ?? '—'}</Td>
+                            <Td className="font-mono text-xs">{c['name'] || '—'}</Td>
+                            <Td>{c['db'] ?? '—'}</Td>
+                            <Td>{c['age'] ?? '—'}</Td>
+                            <Td>{c['idle'] ?? '—'}</Td>
+                            <Td className="font-mono text-xs">{c['cmd'] ?? '—'}</Td>
+                            <Td className="font-mono text-xs">{c['flags'] ?? '—'}</Td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {clientList.length > CLIENT_PAGE_SIZE && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      {(clientPage - 1) * CLIENT_PAGE_SIZE + 1}–{Math.min(clientPage * CLIENT_PAGE_SIZE, clientList.length)} of {clientList.length} clients
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setClientPage((p) => Math.max(1, p - 1))}
+                        disabled={clientPage === 1}
+                        className="h-7 px-2 text-xs"
+                      >
+                        ‹ Prev
+                      </Button>
+                      <span className="text-xs text-muted-foreground px-2">
+                        Page {clientPage} / {Math.ceil(clientList.length / CLIENT_PAGE_SIZE)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setClientPage((p) => Math.min(Math.ceil(clientList.length / CLIENT_PAGE_SIZE), p + 1))}
+                        disabled={clientPage === Math.ceil(clientList.length / CLIENT_PAGE_SIZE)}
+                        className="h-7 px-2 text-xs"
+                      >
+                        Next ›
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </Card>
         </section>
