@@ -1336,11 +1336,9 @@ export default function KeyBrowserPage() {
                 }`}
               >
                 <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-mono text-xs truncate block">{k.key}</span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <TypeBadge type={k.type} />
-                  </div>
+                <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden">
+                  <span className="font-mono text-xs truncate">{k.key}</span>
+                  <TypeBadge type={k.type} />
                 </div>
               </button>
             ))}
