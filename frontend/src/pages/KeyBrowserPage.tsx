@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown, ChevronRight, Folder, FolderOpen, List, Network } from 'lucide-react'
@@ -1124,7 +1124,7 @@ function NamespaceNodeView({ node, selectedKey, defaultOpen = false, onSelectKey
         {open
           ? <FolderOpen className="w-3.5 h-3.5 shrink-0 text-amber-500" />
           : <Folder className="w-3.5 h-3.5 shrink-0 text-amber-500" />}
-        <span className="font-mono text-xs truncate flex-1 min-w-0 font-medium">{node.label}</span>
+        <span className="font-mono text-xs truncate flex-1 min-w-0 font-medium" title={node.prefix}>{node.label}</span>
         <span className="text-xs text-muted-foreground shrink-0 ml-1 tabular-nums">{node.count}</span>
       </button>
       {open && (
@@ -1147,7 +1147,7 @@ function NamespaceNodeView({ node, selectedKey, defaultOpen = false, onSelectKey
                 }`}
               >
                 <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                <span className="font-mono text-xs truncate flex-1 min-w-0">{child.redisKey.key}</span>
+                <span className="font-mono text-xs truncate flex-1 min-w-0" title={child.redisKey.key}>{child.redisKey.key.split(':').pop() || child.redisKey.key}</span>
                 <TypeBadge type={child.redisKey.type} />
               </button>
             )
@@ -1188,7 +1188,7 @@ function KeyNamespaceTree({ keys, selectedKey, onSelectKey }: KeyNamespaceTreePr
             }`}
           >
             <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-            <span className="font-mono text-xs truncate flex-1 min-w-0">{node.redisKey.key}</span>
+            <span className="font-mono text-xs truncate flex-1 min-w-0" title={node.redisKey.key}>{node.redisKey.key}</span>
             <TypeBadge type={node.redisKey.type} />
           </button>
         )
@@ -1220,6 +1220,30 @@ export default function KeyBrowserPage() {
   const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
   const [addKeyOpen, setAddKeyOpen]         = useState(false)
   const [treeView, setTreeView]             = useState(true)
+
+  // Resizable left panel
+  const [panelWidth, setPanelWidth] = useState(300)
+  const isResizing = useRef(false)
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizing.current = true
+    const startX = e.clientX
+    const startWidth = panelWidth
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return
+      const newWidth = Math.max(200, Math.min(600, startWidth + ev.clientX - startX))
+      setPanelWidth(newWidth)
+    }
+    const onMouseUp = () => {
+      isResizing.current = false
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [panelWidth])
 
   // Debounce — also allow explicit search on Enter
   useEffect(() => {
@@ -1343,7 +1367,7 @@ export default function KeyBrowserPage() {
       {/* ──────────────────────────────────────────────────────────────────── */}
       {/* Left panel – Key list                                               */}
       {/* ──────────────────────────────────────────────────────────────────── */}
-      <div className="w-[300px] shrink-0 border-r flex flex-col overflow-hidden bg-background">
+      <div className="shrink-0 border-r flex flex-col overflow-hidden bg-background relative" style={{ width: panelWidth }}>
 
         {/* Search bar */}
         <div className="p-3 flex flex-col gap-2 border-b shrink-0">
@@ -1453,7 +1477,7 @@ export default function KeyBrowserPage() {
                   }`}
                 >
                   <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                  <span className="font-mono text-xs truncate flex-1 min-w-0">{k.key}</span>
+                  <span className="font-mono text-xs truncate flex-1 min-w-0" title={k.key}>{k.key}</span>
                   <TypeBadge type={k.type} />
                 </button>
               ))
@@ -1474,6 +1498,12 @@ export default function KeyBrowserPage() {
             </Button>
           </div>
         )}
+
+        {/* Resize handle */}
+        <div
+          onMouseDown={handleResizeStart}
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
+        />
       </div>
 
       {/* ──────────────────────────────────────────────────────────────────── */}
