@@ -62,6 +62,12 @@ function TypeBadge({ type }: { type: RedisKeyType }) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function formatTTL(ttl: number): string {
   if (ttl === -1) return 'No expiry'
   if (ttl === -2) return 'Expired'
@@ -1319,13 +1325,20 @@ export default function KeyBrowserPage() {
                 key={k.key}
                 type="button"
                 onClick={() => handleSelectKey(k.key)}
-                className={`w-full text-left px-3 py-2 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
+                className={`w-full text-left px-3 py-2 flex items-start gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
                   selectedKey === k.key ? 'bg-muted' : ''
                 }`}
               >
-                <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                <span className="font-mono text-xs truncate flex-1 min-w-0">{k.key}</span>
-                <TypeBadge type={k.type} />
+                <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-mono text-xs truncate block">{k.key}</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <TypeBadge type={k.type} />
+                    {k.size !== undefined && (
+                      <span className="text-[10px] text-muted-foreground font-mono shrink-0">{formatSize(k.size)}</span>
+                    )}
+                  </div>
+                </div>
               </button>
             ))}
           </div>

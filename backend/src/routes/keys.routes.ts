@@ -54,11 +54,12 @@ router.get(
 
       const keyDetails = await Promise.all(
         keys.map(async (key) => {
-          const [keyType, ttl] = await Promise.all([
+          const [keyType, ttl, size] = await Promise.all([
             client.type(key),
             client.ttl(key),
+            client.memory('USAGE', key).catch(() => null),
           ]);
-          return { key, type: keyType, ttl };
+          return { key, type: keyType, ttl, size: size ?? undefined };
         })
       );
 
