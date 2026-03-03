@@ -24,3 +24,17 @@ export function useSlowLog(connectionId: string | null) {
     enabled: !!connectionId,
   });
 }
+
+export function useClientList(connectionId: string | null) {
+  return useQuery({
+    queryKey: ['client-list', connectionId],
+    queryFn: async () => {
+      const { data } = await api.get<{ clients: Record<string, string>[] }>(
+        `/connections/${connectionId}/clients`
+      );
+      return data.clients;
+    },
+    enabled: !!connectionId,
+    refetchInterval: 5000,
+  });
+}
