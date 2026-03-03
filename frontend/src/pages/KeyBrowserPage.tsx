@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown } from 'lucide-react'
+import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown, ChevronRight, Folder, FolderOpen, List, Network } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +38,7 @@ import { api } from '@/services/api'
 import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
 import { getApiErrorMessage } from '@/utils/apiError'
+import { buildKeyTree, type KeyTreeNode, type NamespaceNode } from '@/utils/keyTree'
 
 // ─── Type badge ──────────────────────────────────────────────────────────────
 
@@ -1098,6 +1099,104 @@ function AddKeyDialog({ open, onOpenChange, connectionId, db, onCreated }: AddKe
   )
 }
 
+// ─── Key Namespace Tree ───────────────────────────────────────────────────────
+
+interface NamespaceNodeProps {
+  node: NamespaceNode
+  selectedKey: string | null
+  defaultOpen?: boolean
+  onSelectKey: (key: string) => void
+}
+
+function NamespaceNodeView({ node, selectedKey, defaultOpen = false, onSelectKey }: NamespaceNodeProps) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-muted/60 transition-colors group"
+      >
+        {open
+          ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+          : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+        {open
+          ? <FolderOpen className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+          : <Folder className="w-3.5 h-3.5 shrink-0 text-amber-500" />}
+        <span className="font-mono text-xs truncate flex-1 min-w-0 font-medium">{node.label}</span>
+        <span className="text-xs text-muted-foreground shrink-0 ml-1 tabular-nums">{node.count}</span>
+      </button>
+      {open && (
+        <div className="pl-4 border-l border-border ml-5">
+          {node.children.map((child) =>
+            child.kind === 'namespace' ? (
+              <NamespaceNodeView
+                key={child.prefix}
+                node={child}
+                selectedKey={selectedKey}
+                onSelectKey={onSelectKey}
+              />
+            ) : (
+              <button
+                key={child.redisKey.key}
+                type="button"
+                onClick={() => onSelectKey(child.redisKey.key)}
+                className={`w-full text-left px-3 py-1.5 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
+                  selectedKey === child.redisKey.key ? 'bg-muted' : ''
+                }`}
+              >
+                <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                <span className="font-mono text-xs truncate flex-1 min-w-0">{child.redisKey.key}</span>
+                <TypeBadge type={child.redisKey.type} />
+              </button>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface KeyNamespaceTreeProps {
+  keys: RedisKey[]
+  selectedKey: string | null
+  onSelectKey: (key: string) => void
+}
+
+function KeyNamespaceTree({ keys, selectedKey, onSelectKey }: KeyNamespaceTreeProps) {
+  const nodes = React.useMemo(() => buildKeyTree(keys), [keys])
+
+  return (
+    <div className="py-1 overflow-x-hidden">
+      {nodes.map((node) =>
+        node.kind === 'namespace' ? (
+          <NamespaceNodeView
+            key={node.prefix}
+            node={node}
+            selectedKey={selectedKey}
+            defaultOpen={nodes.length <= 5}
+            onSelectKey={onSelectKey}
+          />
+        ) : (
+          <button
+            key={node.redisKey.key}
+            type="button"
+            onClick={() => onSelectKey(node.redisKey.key)}
+            className={`w-full text-left px-3 py-1.5 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
+              selectedKey === node.redisKey.key ? 'bg-muted' : ''
+            }`}
+          >
+            <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            <span className="font-mono text-xs truncate flex-1 min-w-0">{node.redisKey.key}</span>
+            <TypeBadge type={node.redisKey.type} />
+          </button>
+        )
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function KeyBrowserPage() {
@@ -1120,6 +1219,7 @@ export default function KeyBrowserPage() {
   const [reloadTrigger, setReloadTrigger]   = useState(0)
   const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
   const [addKeyOpen, setAddKeyOpen]         = useState(false)
+  const [treeView, setTreeView]             = useState(true)
 
   // Debounce — also allow explicit search on Enter
   useEffect(() => {
@@ -1288,6 +1388,15 @@ export default function KeyBrowserPage() {
             >
               <Plus className="w-3.5 h-3.5" />
             </Button>
+            <Button
+              variant={treeView ? 'secondary' : 'outline'}
+              size="sm"
+              className="h-8 px-2.5 shrink-0"
+              onClick={() => setTreeView((v) => !v)}
+              title={treeView ? 'Switch to flat list' : 'Switch to tree view'}
+            >
+              {treeView ? <Network className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
+            </Button>
           </div>
 
           {/* Key count and delete by pattern */}
@@ -1327,20 +1436,28 @@ export default function KeyBrowserPage() {
             </div>
           )}
           <div className="py-1 overflow-x-hidden">
-            {keys.map((k) => (
-              <button
-                key={k.key}
-                type="button"
-                onClick={() => handleSelectKey(k.key)}
-                className={`w-full text-left px-3 py-2 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
-                  selectedKey === k.key ? 'bg-muted' : ''
-                }`}
-              >
-                <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                <span className="font-mono text-xs truncate flex-1 min-w-0">{k.key}</span>
-                <TypeBadge type={k.type} />
-              </button>
-            ))}
+            {treeView ? (
+              <KeyNamespaceTree
+                keys={keys}
+                selectedKey={selectedKey}
+                onSelectKey={handleSelectKey}
+              />
+            ) : (
+              keys.map((k) => (
+                <button
+                  key={k.key}
+                  type="button"
+                  onClick={() => handleSelectKey(k.key)}
+                  className={`w-full text-left px-3 py-2 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
+                    selectedKey === k.key ? 'bg-muted' : ''
+                  }`}
+                >
+                  <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                  <span className="font-mono text-xs truncate flex-1 min-w-0">{k.key}</span>
+                  <TypeBadge type={k.type} />
+                </button>
+              ))
+            )}
           </div>
         </ScrollArea>
         {hasMore && (
