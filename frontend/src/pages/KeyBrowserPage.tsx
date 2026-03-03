@@ -72,6 +72,13 @@ function formatTTL(ttl: number): string {
   return `${h}h ${m}m`
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
 function prettyValue(raw: unknown): string {
   if (typeof raw !== 'string') {
     try { return JSON.stringify(raw, null, 2) } catch { return String(raw ?? '') }
@@ -795,6 +802,12 @@ function KeyDetailPanel({ connectionId, keyName, db, onDeleted }: KeyDetailPanel
               TTL:{' '}
               <span className="font-mono font-medium">{formatTTL(detail.ttl)}</span>
             </span>
+            {detail.keySize != null && (
+              <span className="text-xs text-muted-foreground">
+                Size:{' '}
+                <span className="font-mono font-medium">{formatBytes(detail.keySize)}</span>
+              </span>
+            )}
           </div>
         </div>
 
