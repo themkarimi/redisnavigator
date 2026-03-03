@@ -801,6 +801,12 @@ function KeyDetailPanel({ connectionId, keyName, db, onDeleted }: KeyDetailPanel
               TTL:{' '}
               <span className="font-mono font-medium">{formatTTL(detail.ttl)}</span>
             </span>
+            {detail.size !== undefined && (
+              <span className="text-xs text-muted-foreground">
+                Size:{' '}
+                <span className="font-mono font-medium">{formatSize(detail.size)}</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -1334,9 +1340,6 @@ export default function KeyBrowserPage() {
                   <span className="font-mono text-xs truncate block">{k.key}</span>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <TypeBadge type={k.type} />
-                    {k.size !== undefined && (
-                      <span className="text-[10px] text-muted-foreground font-mono shrink-0">{formatSize(k.size)}</span>
-                    )}
                   </div>
                 </div>
               </button>
