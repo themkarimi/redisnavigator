@@ -41,6 +41,7 @@ export interface RedisKey {
 
 export interface RedisKeyDetail extends RedisKey {
   value: unknown;
+  keySize?: number;
 }
 
 export interface ServerInfo {

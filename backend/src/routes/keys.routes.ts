@@ -71,6 +71,7 @@ router.get(
 
 router.get(
   '/:key',
+  keysLimiter,
   requirePermission(Permission.READ_KEY),
   auditLog(AuditAction.READ_KEY, (req) => req.params.id),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
@@ -84,7 +85,10 @@ router.get(
 
       if (keyType === 'none') { res.status(404).json({ error: 'Key not found' }); return; }
 
-      const ttl = await client.ttl(key);
+      const [ttl, keySize] = await Promise.all([
+        client.ttl(key),
+        client.memory('USAGE', key).catch(() => null),
+      ]);
       let value: unknown;
 
       switch (keyType) {
@@ -116,7 +120,7 @@ router.get(
           value = null;
       }
 
-      res.json({ key, type: keyType, value, ttl });
+      res.json({ key, type: keyType, value, ttl, keySize });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
