@@ -801,12 +801,6 @@ function KeyDetailPanel({ connectionId, keyName, db, onDeleted }: KeyDetailPanel
               TTL:{' '}
               <span className="font-mono font-medium">{formatTTL(detail.ttl)}</span>
             </span>
-            {detail.size !== undefined && (
-              <span className="text-xs text-muted-foreground">
-                Size:{' '}
-                <span className="font-mono font-medium">{formatSize(detail.size)}</span>
-              </span>
-            )}
           </div>
         </div>
 
