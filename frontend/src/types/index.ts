@@ -37,6 +37,7 @@ export interface RedisKey {
   key: string;
   type: RedisKeyType;
   ttl: number;
+  size?: number;
 }
 
 export interface RedisKeyDetail extends RedisKey {
