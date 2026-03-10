@@ -17,6 +17,9 @@ backend:
   # Node environment
   nodeEnv: production
 
+  # Session timeout in hours (after this period of inactivity, users will need to log in again)
+  sessionTimeoutHours: 1
+
   # Port the backend container listens on
   port: 4000
 

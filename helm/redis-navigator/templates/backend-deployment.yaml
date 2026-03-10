@@ -60,6 +60,8 @@ spec:
           env:
             - name: NODE_ENV
               value: {{ .Values.backend.nodeEnv | quote }}
+            - name: SESSION_TIMEOUT_HOURS
+              value: {{ .Values.backend.sessionTimeoutHours | quote }}
             - name: PORT
               value: {{ .Values.backend.port | quote }}
             - name: FRONTEND_URL
