@@ -78,6 +78,20 @@ function parseKeyspace(parsed: Record<string, string>): KeyspaceEntry[] {
   return entries.sort((a, b) => a.db.localeCompare(b.db))
 }
 
+/**
+ * Extracts the IP address from a Redis client address string.
+ * Handles IPv4 (e.g. "192.168.1.1:6379"), IPv6 with bracket notation
+ * (e.g. "[::1]:6379"), and bare addresses without a port.
+ */
+function extractIPFromAddress(addr: string): string {
+  if (addr.startsWith('[')) {
+    const end = addr.indexOf(']')
+    return end !== -1 ? addr.slice(1, end) : addr
+  }
+  const lastColon = addr.lastIndexOf(':')
+  return lastColon !== -1 ? addr.slice(0, lastColon) : addr
+}
+
 function toChartPoint(snap: MetricsSnapshot): ChartPoint {
   const d = new Date(snap.timestamp)
   return {
@@ -187,6 +201,15 @@ export default function MetricsPage() {
   } = useClientList(connectionId ?? null)
 
   const clientList: ConnectedClient[] = Array.isArray(clientListData) ? clientListData : []
+
+  // Unique IP addresses (strip port from addr field, deduplicate)
+  const uniqueClientIPs: string[] = Array.from(
+    new Set(
+      clientList
+        .map((c) => extractIPFromAddress(c['addr'] ?? ''))
+        .filter(Boolean)
+    )
+  )
 
   // Pagination state for connected clients
   const [clientPage, setClientPage] = useState(1)
@@ -532,7 +555,7 @@ export default function MetricsPage() {
               <CardContent className="pt-4 pb-4 space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
               </CardContent>
-            ) : clientList.length === 0 ? (
+            ) : uniqueClientIPs.length === 0 ? (
               <CardContent className="pt-6 pb-6 text-center">
                 <p className="text-sm text-muted-foreground">No connected clients.</p>
               </CardContent>
@@ -542,38 +565,24 @@ export default function MetricsPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
-                        <Th>ID</Th>
-                        <Th>Address</Th>
-                        <Th>Name</Th>
-                        <Th>DB</Th>
-                        <Th>Age (s)</Th>
-                        <Th>Idle (s)</Th>
-                        <Th>Last Cmd</Th>
-                        <Th>Flags</Th>
+                        <Th>IP Address</Th>
                       </tr>
                     </thead>
                     <tbody>
-                      {clientList
+                      {uniqueClientIPs
                         .slice((clientPage - 1) * CLIENT_PAGE_SIZE, clientPage * CLIENT_PAGE_SIZE)
-                        .map((c, i) => (
-                          <tr key={c['id'] ?? `${clientPage}-${i}`} className="border-b border-border/50 hover:bg-muted/40 transition-colors">
-                            <Td className="font-mono text-xs text-muted-foreground">{c['id'] ?? '—'}</Td>
-                            <Td className="font-mono text-xs">{c['addr'] ?? '—'}</Td>
-                            <Td className="font-mono text-xs">{c['name'] || '—'}</Td>
-                            <Td>{c['db'] ?? '—'}</Td>
-                            <Td>{c['age'] ?? '—'}</Td>
-                            <Td>{c['idle'] ?? '—'}</Td>
-                            <Td className="font-mono text-xs">{c['cmd'] ?? '—'}</Td>
-                            <Td className="font-mono text-xs">{c['flags'] ?? '—'}</Td>
+                        .map((ip) => (
+                          <tr key={ip} className="border-b border-border/50 hover:bg-muted/40 transition-colors">
+                            <Td className="font-mono text-xs">{ip}</Td>
                           </tr>
                         ))}
                     </tbody>
                   </table>
                 </div>
-                {clientList.length > CLIENT_PAGE_SIZE && (
+                {uniqueClientIPs.length > CLIENT_PAGE_SIZE && (
                   <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                     <p className="text-xs text-muted-foreground">
-                      {(clientPage - 1) * CLIENT_PAGE_SIZE + 1}–{Math.min(clientPage * CLIENT_PAGE_SIZE, clientList.length)} of {clientList.length} clients
+                      {(clientPage - 1) * CLIENT_PAGE_SIZE + 1}–{Math.min(clientPage * CLIENT_PAGE_SIZE, uniqueClientIPs.length)} of {uniqueClientIPs.length} clients
                     </p>
                     <div className="flex items-center gap-1">
                       <Button
@@ -586,13 +595,13 @@ export default function MetricsPage() {
                         ‹ Prev
                       </Button>
                       <span className="text-xs text-muted-foreground px-2">
-                        Page {clientPage} / {Math.ceil(clientList.length / CLIENT_PAGE_SIZE)}
+                        Page {clientPage} / {Math.ceil(uniqueClientIPs.length / CLIENT_PAGE_SIZE)}
                       </span>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setClientPage((p) => Math.min(Math.ceil(clientList.length / CLIENT_PAGE_SIZE), p + 1))}
-                        disabled={clientPage === Math.ceil(clientList.length / CLIENT_PAGE_SIZE)}
+                        onClick={() => setClientPage((p) => Math.min(Math.ceil(uniqueClientIPs.length / CLIENT_PAGE_SIZE), p + 1))}
+                        disabled={clientPage === Math.ceil(uniqueClientIPs.length / CLIENT_PAGE_SIZE)}
                         className="h-7 px-2 text-xs"
                       >
                         Next ›
