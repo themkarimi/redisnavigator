@@ -150,12 +150,15 @@ export default function ConnectionsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const payload = {
+    // When editing, omit password from the payload if left blank so the
+    // existing encrypted password is preserved in the database.
+    const payload: Omit<ConnectionFormData, 'tags' | 'password'> & { tags: string[]; password?: string } = {
       ...formData,
       tags: formData.tags
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
+      ...(editingId && formData.password === '' ? {} : { password: formData.password }),
     }
     try {
       if (editingId) {
