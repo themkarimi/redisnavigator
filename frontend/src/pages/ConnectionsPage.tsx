@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  ArrowRight,
+  Circle,
   Plus,
   Server,
   Wifi,
@@ -219,110 +221,149 @@ export default function ConnectionsPage() {
   }
 
   const isPending = createConnection.isPending || updateConnection.isPending
+  const activeCount = connections.filter((conn) => conn.isActive).length
+  const tlsCount = connections.filter((conn) => conn.useTLS).length
+  const taggedCount = connections.filter((conn) => conn.tags.length > 0).length
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="mx-auto flex max-w-7xl flex-col gap-8 p-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Redis Connections</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Manage your Redis server connections
-          </p>
+      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur sm:p-8">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -right-10 top-0 h-40 w-40 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute left-1/3 top-8 h-32 w-32 rounded-full bg-red-500/10 blur-3xl" />
         </div>
-        {canManageConnections && (
-          <Button onClick={handleOpenCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Connection
-          </Button>
-        )}
-      </div>
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-red-200">
+              <Circle className="h-2.5 w-2.5 fill-current" />
+              Connection control center
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              Redis Connections
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+              Manage environments, verify connectivity, and jump straight into browsing keys or live diagnostics.
+            </p>
+          </div>
+          {canManageConnections && (
+            <Button
+              onClick={handleOpenCreate}
+              className="h-11 rounded-xl bg-gradient-to-r from-red-500 via-red-600 to-orange-500 px-5 text-white shadow-lg shadow-red-950/40 hover:from-red-400 hover:via-red-500 hover:to-orange-400"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Connection
+            </Button>
+          )}
+        </div>
+        <div className="relative mt-6 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total</p>
+            <p className="mt-3 text-3xl font-semibold text-white">{connections.length}</p>
+            <p className="mt-2 text-sm text-slate-400">Configured Redis environments</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Online ready</p>
+            <p className="mt-3 text-3xl font-semibold text-white">{activeCount}</p>
+            <p className="mt-2 text-sm text-slate-400">Connections marked active in the catalog</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Protected</p>
+            <p className="mt-3 text-3xl font-semibold text-white">{tlsCount}</p>
+            <p className="mt-2 text-sm text-slate-400">{taggedCount} tagged connections for faster filtering</p>
+          </div>
+        </div>
+      </section>
 
       {/* Connection Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-52 rounded-lg bg-muted animate-pulse" />
+            <div key={i} className="h-52 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
           ))}
         </div>
       ) : connections.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-28 text-center">
-          <div className="rounded-full bg-muted p-5 mb-5">
-            <Server className="w-10 h-10 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-slate-950/40 py-28 text-center">
+          <div className="mb-5 rounded-full bg-white/5 p-5">
+            <Server className="h-10 w-10 text-slate-400" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">No connections yet</h2>
-          <p className="text-muted-foreground text-sm mb-6 max-w-xs">
+          <h2 className="mb-2 text-xl font-semibold text-white">No connections yet</h2>
+          <p className="mb-6 max-w-xs text-sm text-slate-400">
             Add your first Redis connection to start browsing keys and running commands.
           </p>
           {canManageConnections && (
-            <Button onClick={handleOpenCreate}>
-              <Plus className="w-4 h-4 mr-2" />
+            <Button
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-gradient-to-r from-red-500 via-red-600 to-orange-500 text-white"
+            >
+              <Plus className="mr-2 h-4 w-4" />
               Add Connection
             </Button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {connections.map((conn) => {
             const isActive = activeConnectionId === conn.id
             const testResult = testResults[conn.id]
             return (
               <Card
                 key={conn.id}
-                className={`relative transition-all hover:shadow-md ${
-                  isActive ? 'ring-2 ring-red-500 shadow-md' : ''
+                className={`relative overflow-hidden border-white/10 bg-slate-950/60 text-slate-100 shadow-xl shadow-slate-950/20 transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-950/30 ${
+                  isActive ? 'ring-2 ring-red-500/70 shadow-red-950/20' : ''
                 }`}
               >
-                <CardHeader className="pb-2">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-red-500/12 via-transparent to-cyan-400/10" />
+                <CardHeader className="relative pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Server
-                        className={`w-5 h-5 shrink-0 ${
-                          isActive ? 'text-red-500' : 'text-muted-foreground'
+                        className={`h-5 w-5 shrink-0 ${
+                          isActive ? 'text-red-400' : 'text-slate-500'
                         }`}
                       />
-                      <CardTitle className="text-base truncate">{conn.name}</CardTitle>
+                      <CardTitle className="truncate text-base text-white">{conn.name}</CardTitle>
                     </div>
                     {isActive && (
-                      <Badge variant="secondary" className="ml-2 shrink-0 text-xs">
+                      <Badge variant="secondary" className="ml-2 shrink-0 border-0 bg-red-500/15 text-xs text-red-100">
                         Active
                       </Badge>
                     )}
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-3">
-                  <div className="space-y-1.5 text-sm text-muted-foreground">
+                <CardContent className="relative space-y-4">
+                  <div className="space-y-2 text-sm text-slate-400">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-foreground">
+                      <span className="font-mono text-slate-100">
                         {conn.host}:{conn.port}
                       </span>
                       {conn.useTLS && (
-                        <Badge variant="outline" className="text-xs py-0 px-1.5">
+                        <Badge variant="outline" className="border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0 text-xs text-emerald-200">
                           TLS
                         </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="border-white/10 bg-white/5 text-xs text-slate-300">
                         {conn.mode}
                       </Badge>
                       {testResult === 'success' && (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
                       )}
                       {testResult === 'error' && (
-                        <XCircle className="w-4 h-4 text-red-500" />
+                        <XCircle className="h-4 w-4 text-red-400" />
                       )}
                     </div>
                     {conn.tags.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <Tag className="w-3 h-3 shrink-0" />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Tag className="h-3 w-3 shrink-0" />
                         {conn.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="bg-muted px-1.5 py-0.5 rounded text-xs"
+                            className="rounded-full bg-white/5 px-2 py-1 text-xs text-slate-200"
                           >
                             {tag}
                           </span>
@@ -334,52 +375,55 @@ export default function ConnectionsPage() {
                   <div className="flex gap-2 pt-1">
                     <Button
                       size="sm"
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                      className="h-10 flex-1 rounded-xl bg-gradient-to-r from-red-500 via-red-600 to-orange-500 text-white shadow-lg shadow-red-950/30 hover:from-red-400 hover:via-red-500 hover:to-orange-400"
                       onClick={() => handleConnect(conn)}
                     >
                       {isActive ? (
                         <>
-                          <Wifi className="w-3 h-3 mr-1.5" />
+                          <Wifi className="mr-1.5 h-3 w-3" />
                           Connected
                         </>
                       ) : (
-                        'Connect'
+                        <>
+                          Connect
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </>
                       )}
                     </Button>
                     <Button
                       size="icon"
                       variant="outline"
-                      className="h-9 w-9"
+                      className="h-10 w-10 rounded-xl border-white/10 bg-white/5 hover:bg-white/10"
                       title="Test connection"
                       onClick={() => handleTestExisting(conn)}
                       disabled={testingId === conn.id}
                     >
                       {testingId === conn.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <TestTube className="w-3.5 h-3.5" />
+                        <TestTube className="h-3.5 w-3.5" />
                       )}
                     </Button>
                     {canManageConnections && (
                       <Button
                         size="icon"
                         variant="outline"
-                        className="h-9 w-9"
+                        className="h-10 w-10 rounded-xl border-white/10 bg-white/5 hover:bg-white/10"
                         title="Edit connection"
                         onClick={() => handleOpenEdit(conn)}
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Edit2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     {canManageConnections && (
                       <Button
                         size="icon"
                         variant="outline"
-                        className="h-9 w-9 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        className="h-10 w-10 rounded-xl border-red-500/20 bg-red-500/10 text-red-200 hover:bg-red-500 hover:text-white"
                         title="Delete connection"
                         onClick={() => setDeleteId(conn.id)}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>

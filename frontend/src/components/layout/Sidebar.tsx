@@ -85,29 +85,33 @@ export function Sidebar() {
     : '??'
 
   return (
-    <aside className="h-screen w-[240px] bg-gray-900 text-white flex flex-col flex-shrink-0 border-r border-gray-800">
+    <aside className="relative flex h-screen w-[260px] flex-shrink-0 flex-col overflow-hidden border-r border-white/10 bg-slate-950/85 text-white backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-red-500/20 via-fuchsia-500/10 to-transparent" />
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-gray-800">
+      <div className="relative flex items-center gap-3 border-b border-white/10 px-4 py-5">
         <img src="/favicon.svg" alt="RedisNavigator logo" className="w-8 h-8" />
-        <span className="text-base font-semibold tracking-tight text-white">RedisNavigator</span>
+        <div className="min-w-0">
+          <span className="block text-base font-semibold tracking-tight text-white">RedisNavigator</span>
+          <span className="block text-xs text-slate-400">Operate Redis with confidence</span>
+        </div>
       </div>
 
       {/* Connection selector */}
-      <div className="px-3 py-3 border-b border-gray-800">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1.5 px-1">
+      <div className="border-b border-white/10 px-3 py-4">
+        <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
           Connection
         </p>
         {connections.length > 0 ? (
           <Select value={activeId ?? ''} onValueChange={handleConnectionChange}>
-            <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-gray-100 text-sm h-9 focus:ring-red-500 focus:border-red-500">
+            <SelectTrigger className="h-10 w-full border-white/10 bg-white/5 text-sm text-gray-100 shadow-inner shadow-black/20 focus:border-red-400 focus:ring-red-400">
               <SelectValue placeholder="Select connection…" />
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700 text-gray-100">
+            <SelectContent className="border-white/10 bg-slate-900 text-gray-100">
               {connections.map((conn) => (
                 <SelectItem
                   key={conn.id}
                   value={conn.id}
-                  className="focus:bg-gray-700 focus:text-white text-gray-200"
+                  className="text-gray-200 focus:bg-white/10 focus:text-white"
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <span
@@ -123,7 +127,7 @@ export function Sidebar() {
             </SelectContent>
           </Select>
         ) : (
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-gray-800 text-gray-500 text-sm">
+          <div className="flex items-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-500">
             <Server className="h-4 w-4" />
             <span>No connections</span>
           </div>
@@ -131,8 +135,8 @@ export function Sidebar() {
       </div>
 
       {/* Main navigation */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1.5 px-1">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
           Navigate
         </p>
         {navItems.map((item) => {
@@ -143,10 +147,12 @@ export function Sidebar() {
             return (
               <div
                 key={item.label}
-                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-600 cursor-not-allowed select-none"
+                className="select-none rounded-xl px-3 py-2 text-sm text-gray-600 cursor-not-allowed"
               >
-                {item.icon}
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3">
+                  {item.icon}
+                  <span>{item.label}</span>
+                </div>
               </div>
             )
           }
@@ -157,10 +163,10 @@ export function Sidebar() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all',
                   isActive
-                    ? 'bg-red-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-950/40'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
                 )
               }
             >
@@ -172,18 +178,18 @@ export function Sidebar() {
       </nav>
 
       {/* Divider */}
-      <div className="mx-3 border-t border-gray-800" />
+      <div className="mx-3 border-t border-white/10" />
 
       {/* Bottom section: management links */}
-      <div className="px-2 py-2 space-y-0.5">
+      <div className="space-y-1 px-3 py-3">
         <NavLink
           to="/connections"
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all',
               isActive
-                ? 'bg-red-600 text-white'
-                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-950/40'
+                : 'text-gray-300 hover:bg-white/5 hover:text-white'
             )
           }
         >
@@ -195,10 +201,10 @@ export function Sidebar() {
           to="/settings"
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all',
               isActive
-                ? 'bg-red-600 text-white'
-                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-950/40'
+                : 'text-gray-300 hover:bg-white/5 hover:text-white'
             )
           }
         >
@@ -209,15 +215,15 @@ export function Sidebar() {
         {canManageUsers && (
           <NavLink
             to="/users"
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
-                isActive
-                  ? 'bg-red-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              )
-            }
-          >
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all',
+                  isActive
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-950/40'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                )
+              }
+            >
             <Users className="h-4 w-4" />
             <span>Users</span>
           </NavLink>
@@ -226,15 +232,15 @@ export function Sidebar() {
         {canManageUsers && (
           <NavLink
             to="/groups"
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
-                isActive
-                  ? 'bg-red-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              )
-            }
-          >
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all',
+                  isActive
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-950/40'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                )
+              }
+            >
             <UsersRound className="h-4 w-4" />
             <span>Groups</span>
           </NavLink>
@@ -243,7 +249,7 @@ export function Sidebar() {
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-300 transition-all hover:bg-white/5 hover:text-white"
         >
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
@@ -251,24 +257,26 @@ export function Sidebar() {
       </div>
 
       {/* Divider */}
-      <div className="mx-3 border-t border-gray-800" />
+      <div className="mx-3 border-t border-white/10" />
 
       {/* User info + logout */}
-      <div className="px-3 py-3">
-        <div className="flex items-center gap-2.5 mb-2">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600/80 text-white text-xs font-semibold flex-shrink-0">
+      <div className="px-3 py-4">
+        <div className="mb-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-xs font-semibold text-white shadow-lg shadow-red-950/40">
             {userInitials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-100 truncate">{user?.name ?? 'Unknown'}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.email ?? ''}</p>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-gray-100">{user?.name ?? 'Unknown'}</p>
+              <p className="truncate text-xs text-gray-500">{user?.email ?? ''}</p>
+            </div>
           </div>
         </div>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleLogout}
-          className="w-full justify-start gap-2 text-gray-400 hover:text-white hover:bg-gray-800 px-2"
+          className="w-full justify-start gap-2 rounded-xl px-3 text-gray-400 hover:bg-white/5 hover:text-white"
         >
           <LogOut className="h-4 w-4" />
           Sign out
