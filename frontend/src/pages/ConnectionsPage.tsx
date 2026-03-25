@@ -223,7 +223,6 @@ export default function ConnectionsPage() {
   const isPending = createConnection.isPending || updateConnection.isPending
   const activeCount = connections.filter((conn) => conn.isActive).length
   const tlsCount = connections.filter((conn) => conn.useTLS).length
-  const taggedCount = connections.filter((conn) => conn.tags.length > 0).length
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -270,9 +269,9 @@ export default function ConnectionsPage() {
             <p className="mt-2 text-sm text-slate-400">Connections marked active in the catalog</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Protected</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">TLS enabled</p>
             <p className="mt-3 text-3xl font-semibold text-white">{tlsCount}</p>
-            <p className="mt-2 text-sm text-slate-400">{taggedCount} tagged connections for faster filtering</p>
+            <p className="mt-2 text-sm text-slate-400">Connections configured with encrypted transport</p>
           </div>
         </div>
       </section>
