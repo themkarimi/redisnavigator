@@ -148,4 +148,45 @@ router.get(
   }
 );
 
+router.get(
+  '/config',
+  statsLimiter,
+  requirePermission(Permission.READ_KEY),
+  async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
+    try {
+      const connection = await prisma.redisConnection.findFirst({
+        where: { id: req.params.id, isActive: true },
+      });
+
+      if (!connection) {
+        res.status(404).json({ error: 'Connection not found' });
+        return;
+      }
+
+      const client = await getRedisClient(connection);
+      let raw: string[];
+      try {
+        raw = await client.config('GET', '*') as string[];
+      } catch (configErr) {
+        const msg = (configErr as Error).message ?? '';
+        if (msg.includes('ERR') || msg.includes('NOPERM') || msg.includes('unknown command')) {
+          res.status(403).json({ error: 'CONFIG command is disabled or not permitted on this Redis instance' });
+          return;
+        }
+        throw configErr;
+      }
+
+      // ioredis returns a flat array: [key, value, key, value, ...]
+      const config: Record<string, string> = {};
+      for (let i = 0; i + 1 < raw.length; i += 2) {
+        config[raw[i]] = raw[i + 1];
+      }
+
+      res.json({ config });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
 export default router;

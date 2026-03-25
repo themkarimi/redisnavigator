@@ -4,6 +4,7 @@ import {
   Terminal,
   Radio,
   BarChart2,
+  SlidersHorizontal,
   Server,
   Settings,
   Users,
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { label: 'CLI', icon: <Terminal className="h-4 w-4" />, path: 'cli' },
   { label: 'Pub/Sub', icon: <Radio className="h-4 w-4" />, path: 'pubsub' },
   { label: 'Metrics', icon: <BarChart2 className="h-4 w-4" />, path: 'metrics' },
+  { label: 'Config', icon: <SlidersHorizontal className="h-4 w-4" />, path: 'config' },
 ]
 
 export function Sidebar() {

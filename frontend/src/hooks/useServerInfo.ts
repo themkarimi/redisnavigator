@@ -38,3 +38,16 @@ export function useClientList(connectionId: string | null) {
     refetchInterval: 5000,
   });
 }
+
+export function useRedisConfig(connectionId: string | null) {
+  return useQuery({
+    queryKey: ['redis-config', connectionId],
+    queryFn: async () => {
+      const { data } = await api.get<{ config: Record<string, string> }>(
+        `/connections/${connectionId}/config`
+      );
+      return data.config;
+    },
+    enabled: !!connectionId,
+  });
+}
