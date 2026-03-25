@@ -250,8 +250,7 @@ export default function SettingsPage() {
         <TabsContent value="about">
           <Card>
             <CardHeader>
-              <CardTitle>About RedisNavigator</CardTitle>
-              <CardDescription>Application information and resources.</CardDescription>
+              <CardTitle>RedisNavigator</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
