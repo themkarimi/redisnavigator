@@ -9,6 +9,26 @@ import { Permission } from '@prisma/client';
 
 const router = Router({ mergeParams: true });
 
+const SENSITIVE_CONFIG_KEYS = new Set([
+  'masterauth',
+  'requirepass',
+  'tls-key-file-pass',
+]);
+
+export function sanitizeRedisConfigValue(key: string, value: string): string {
+  const normalizedKey = key.toLowerCase();
+  const isSensitive =
+    SENSITIVE_CONFIG_KEYS.has(normalizedKey) ||
+    normalizedKey.endsWith('-pass') ||
+    normalizedKey.endsWith('-password');
+
+  if (!isSensitive || value === '') {
+    return value;
+  }
+
+  return '[hidden]';
+}
+
 const statsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
@@ -179,7 +199,7 @@ router.get(
       // ioredis returns a flat array: [key, value, key, value, ...]
       const config: Record<string, string> = {};
       for (let i = 0; i + 1 < raw.length; i += 2) {
-        config[raw[i]] = raw[i + 1];
+        config[raw[i]] = sanitizeRedisConfigValue(raw[i], raw[i + 1]);
       }
 
       res.json({ config });
