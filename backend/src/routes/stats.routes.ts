@@ -44,7 +44,7 @@ router.get(
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await prisma.redisConnection.findFirst({
-        where: { id: req.params.id, isActive: true },
+        where: { id: req.params.id as string, isActive: true },
       });
 
       if (!connection) {
@@ -109,7 +109,7 @@ router.get(
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await prisma.redisConnection.findFirst({
-        where: { id: req.params.id, isActive: true },
+        where: { id: req.params.id as string, isActive: true },
       });
 
       if (!connection) {
@@ -150,7 +150,7 @@ router.get(
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await prisma.redisConnection.findFirst({
-        where: { id: req.params.id, isActive: true },
+        where: { id: req.params.id as string, isActive: true },
       });
 
       if (!connection) {
@@ -175,7 +175,7 @@ router.get(
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const connection = await prisma.redisConnection.findFirst({
-        where: { id: req.params.id, isActive: true },
+        where: { id: req.params.id as string, isActive: true },
       });
 
       if (!connection) {

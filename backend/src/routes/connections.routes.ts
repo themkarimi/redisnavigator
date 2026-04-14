@@ -123,7 +123,7 @@ router.post(
       res.status(201).json({ ...connection, passwordEnc: undefined });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: err.errors });
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
       res.status(500).json({ error: 'Internal server error' });
@@ -135,7 +135,7 @@ router.patch(
   '/:id',
   requirePermission(Permission.MANAGE_CONNECTION),
   requireConfigEditable,
-  auditLog(AuditAction.UPDATE_CONNECTION, (req) => req.params.id),
+  auditLog(AuditAction.UPDATE_CONNECTION, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const data = connectionSchema.partial().parse(req.body);
@@ -146,17 +146,17 @@ router.patch(
         delete updateData.password;
       }
 
-      await closeConnection(req.params.id);
+      await closeConnection(req.params.id as string);
 
       const connection = await prisma.redisConnection.update({
-        where: { id: req.params.id },
+        where: { id: req.params.id as string },
         data: updateData,
       });
 
       res.json({ ...connection, passwordEnc: undefined });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: err.errors });
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
       res.status(500).json({ error: 'Internal server error' });
@@ -168,12 +168,12 @@ router.delete(
   '/:id',
   requirePermission(Permission.MANAGE_CONNECTION),
   requireConfigEditable,
-  auditLog(AuditAction.DELETE_CONNECTION, (req) => req.params.id),
+  auditLog(AuditAction.DELETE_CONNECTION, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      await closeConnection(req.params.id);
+      await closeConnection(req.params.id as string);
       await prisma.redisConnection.update({
-        where: { id: req.params.id },
+        where: { id: req.params.id as string },
         data: { isActive: false },
       });
       res.json({ message: 'Connection deleted' });
@@ -198,7 +198,7 @@ router.post('/test', async (req: AuthenticatedRequest, res: Response): Promise<v
     res.json(result);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      res.status(400).json({ error: 'Validation failed', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'Internal server error' });
@@ -207,7 +207,7 @@ router.post('/test', async (req: AuthenticatedRequest, res: Response): Promise<v
 
 router.post('/:id/test', requirePermission(Permission.READ_KEY), async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
   try {
-    const connection = await prisma.redisConnection.findUnique({ where: { id: req.params.id } });
+    const connection = await prisma.redisConnection.findUnique({ where: { id: req.params.id as string } });
     if (!connection) {
       res.status(404).json({ error: 'Connection not found' });
       return;

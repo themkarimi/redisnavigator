@@ -2,14 +2,21 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
-import { generators } from 'openid-client';
+import {
+  randomPKCECodeVerifier,
+  calculatePKCECodeChallenge,
+  randomState,
+  buildAuthorizationUrl,
+  authorizationCodeGrant,
+  fetchUserInfo,
+} from 'openid-client';
 import { prisma } from '../config/prisma';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { AuthenticatedRequest } from '../types';
 import { env } from '../config/env';
 import { AuditAction, UserRole } from '@prisma/client';
-import { getOidcClient } from '../config/oidc';
+import { getOidcConfig } from '../config/oidc';
 import { logger } from '../config/logger';
 
 const router = Router();
@@ -58,7 +65,7 @@ async function getUserHighestRole(userId: string): Promise<UserRole | null> {
     select: { role: true },
   });
   if (roles.length === 0) return null;
-  return roles.reduce((highest, r) =>
+  return roles.reduce((highest: UserRole, r: { role: UserRole }) =>
     ROLE_PRIORITY[r.role] > ROLE_PRIORITY[highest] ? r.role : highest,
     roles[0].role
   );
@@ -119,7 +126,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      res.status(400).json({ error: 'Validation failed', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'Internal server error' });
@@ -254,7 +261,7 @@ router.post('/change-password', authLimiter, authMiddleware, async (req: Authent
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      res.status(400).json({ error: 'Validation failed', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'Internal server error' });
@@ -268,10 +275,10 @@ router.get('/oidc', authLimiter, async (_req: Request, res: Response): Promise<v
   }
 
   try {
-    const client = await getOidcClient();
-    const codeVerifier = generators.codeVerifier();
-    const codeChallenge = generators.codeChallenge(codeVerifier);
-    const state = generators.state();
+    const config = await getOidcConfig();
+    const codeVerifier = randomPKCECodeVerifier();
+    const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
+    const state = randomState();
 
     const oidcState = JSON.stringify({ state, codeVerifier });
     res.cookie('oidc_state', Buffer.from(oidcState).toString('base64'), {
@@ -281,14 +288,15 @@ router.get('/oidc', authLimiter, async (_req: Request, res: Response): Promise<v
       maxAge: 5 * 60 * 1000,
     });
 
-    const authUrl = client.authorizationUrl({
+    const authUrl = buildAuthorizationUrl(config, {
+      redirect_uri: env.OIDC_REDIRECT_URI,
       scope: 'openid email profile',
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
     });
 
-    res.redirect(authUrl);
+    res.redirect(authUrl.href);
   } catch (err) {
     logger.error('Failed to initiate OIDC login:', err);
     res.status(500).json({ error: 'Failed to initiate OIDC login' });
@@ -318,19 +326,29 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
     }
     res.clearCookie('oidc_state');
 
-    const client = await getOidcClient();
-    const params = client.callbackParams(req);
-    const tokenSet = await client.callback(env.OIDC_REDIRECT_URI, params, {
-      state,
-      code_verifier: codeVerifier,
+    const config = await getOidcConfig();
+    const callbackUrl = new URL(
+      `${env.OIDC_REDIRECT_URI}?${new URLSearchParams(req.query as Record<string, string>).toString()}`
+    );
+    const tokens = await authorizationCodeGrant(config, callbackUrl, {
+      pkceCodeVerifier: codeVerifier,
+      expectedState: state,
     });
 
-    const userinfo = await client.userinfo(tokenSet);
-    const sub = userinfo.sub;
-    const email = userinfo.email as string | undefined;
-    const name = (userinfo.name ?? userinfo.preferred_username ?? email ?? sub) as string;
+    const claims = tokens.claims();
+    const sub = claims?.sub ?? '';
+    const email = claims?.email as string | undefined;
+    const name = (claims?.name ?? claims?.preferred_username ?? email ?? sub) as string;
 
-    if (!email) {
+    // Fetch full user profile if claims are insufficient
+    const userinfo = (!email && tokens.access_token)
+      ? await fetchUserInfo(config, tokens.access_token, sub)
+      : claims;
+
+    const resolvedEmail = email ?? (userinfo?.email as string | undefined);
+    const resolvedName = name || (userinfo?.name as string | undefined) || resolvedEmail || sub;
+
+    if (!resolvedEmail) {
       res.redirect(`${env.FRONTEND_URL}/login?error=oidc_no_email`);
       return;
     }
@@ -338,12 +356,12 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
     let user = await prisma.user.findUnique({ where: { oidcSub: sub } });
 
     if (!user) {
-      user = await prisma.user.findUnique({ where: { email } });
+      user = await prisma.user.findUnique({ where: { email: resolvedEmail } });
       if (user) {
         user = await prisma.user.update({ where: { id: user.id }, data: { oidcSub: sub } });
       } else {
         user = await prisma.user.create({
-          data: { email, name, oidcSub: sub },
+          data: { email: resolvedEmail, name: resolvedName, oidcSub: sub },
         });
       }
     }

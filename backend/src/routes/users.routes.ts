@@ -75,7 +75,7 @@ async function createUserHandler(req: AuthenticatedRequest, res: Response): Prom
 
       res.status(201).json({ id: user.id, email: user.email, name: user.name });
     } catch (err) {
-      if (err instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: err.errors }); return; }
+      if (err instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: err.issues }); return; }
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -103,17 +103,17 @@ router.patch(
       const data = updateRoleSchema.parse(req.body);
 
       await prisma.userConnectionRole.upsert({
-        where: { userId_connectionId: { userId: req.params.id, connectionId: data.connectionId } },
+        where: { userId_connectionId: { userId: req.params.id as string, connectionId: data.connectionId } },
         update: { role: data.role, permissions: data.permissions || ROLE_PERMISSIONS[data.role] },
         create: {
-          userId: req.params.id, connectionId: data.connectionId,
+          userId: req.params.id as string, connectionId: data.connectionId,
           role: data.role, permissions: data.permissions || ROLE_PERMISSIONS[data.role],
         },
       });
 
       res.json({ message: 'Role updated' });
     } catch (err) {
-      if (err instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: err.errors }); return; }
+      if (err instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: err.issues }); return; }
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -125,11 +125,11 @@ router.delete(
   auditLog(AuditAction.DELETE_USER),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      if (req.params.id === req.user!.userId) {
+      if (req.params.id as string === req.user!.userId) {
         res.status(400).json({ error: 'Cannot delete your own account' });
         return;
       }
-      await prisma.user.update({ where: { id: req.params.id }, data: { isActive: false } });
+      await prisma.user.update({ where: { id: req.params.id as string }, data: { isActive: false } });
       res.json({ message: 'User deleted' });
     } catch {
       res.status(500).json({ error: 'Internal server error' });

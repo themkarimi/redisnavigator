@@ -16,7 +16,7 @@ export function auditLog(
         const { userId } = req.user;
         const connectionId = getConnectionId ? getConnectionId(req) : null;
         const rawKey = req.params.key
-          ? decodeURIComponent(req.params.key)
+          ? decodeURIComponent(req.params.key as string)
           : (req.body as { key?: string })?.key;
         const maskedKey = rawKey ? maskKey(rawKey) : undefined;
 

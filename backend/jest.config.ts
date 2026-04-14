@@ -9,6 +9,7 @@ const config: Config = {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {
         strict: false,
+        types: ['jest', 'node'],
       },
     }],
   },
