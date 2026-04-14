@@ -69,7 +69,7 @@ router.post(
       res.status(201).json(group);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: err.errors });
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
       res.status(500).json({ error: 'Internal server error' });
@@ -86,11 +86,11 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const data = groupSchema.partial().parse(req.body);
-      const group = await prisma.group.update({ where: { id: req.params.id }, data });
+      const group = await prisma.group.update({ where: { id: req.params.id as string }, data });
       res.json(group);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: err.errors });
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
       res.status(500).json({ error: 'Internal server error' });
@@ -106,7 +106,7 @@ router.delete(
   auditLog(AuditAction.DELETE_GROUP),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      await prisma.group.delete({ where: { id: req.params.id } });
+      await prisma.group.delete({ where: { id: req.params.id as string } });
       res.json({ message: 'Group deleted' });
     } catch {
       res.status(500).json({ error: 'Internal server error' });
@@ -124,13 +124,13 @@ router.post(
     try {
       const { userId } = z.object({ userId: z.string().min(1) }).parse(req.body);
       const member = await prisma.groupMember.create({
-        data: { groupId: req.params.id, userId },
+        data: { groupId: req.params.id as string, userId },
         include: { user: { select: { id: true, name: true, email: true } } },
       });
       res.status(201).json(member);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: err.errors });
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
       // Unique constraint violation — user already in group
@@ -152,7 +152,7 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       await prisma.groupMember.deleteMany({
-        where: { groupId: req.params.id, userId: req.params.userId },
+        where: { groupId: req.params.id as string, userId: req.params.userId as string },
       });
       res.json({ message: 'Member removed' });
     } catch {
@@ -171,10 +171,10 @@ router.post(
     try {
       const data = assignConnectionSchema.parse(req.body);
       const groupConnectionRole = await prisma.groupConnectionRole.upsert({
-        where: { groupId_connectionId: { groupId: req.params.id, connectionId: data.connectionId } },
+        where: { groupId_connectionId: { groupId: req.params.id as string, connectionId: data.connectionId } },
         update: { role: data.role, permissions: ROLE_PERMISSIONS[data.role] },
         create: {
-          groupId: req.params.id,
+          groupId: req.params.id as string,
           connectionId: data.connectionId,
           role: data.role,
           permissions: ROLE_PERMISSIONS[data.role],
@@ -184,7 +184,7 @@ router.post(
       res.status(201).json(groupConnectionRole);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: err.errors });
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
       res.status(500).json({ error: 'Internal server error' });
@@ -201,7 +201,7 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       await prisma.groupConnectionRole.deleteMany({
-        where: { groupId: req.params.id, connectionId: req.params.connectionId },
+        where: { groupId: req.params.id as string, connectionId: req.params.connectionId as string },
       });
       res.json({ message: 'Connection access removed' });
     } catch {

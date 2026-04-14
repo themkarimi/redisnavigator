@@ -34,7 +34,7 @@ router.get(
   requirePermission(Permission.READ_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const { pattern = '*', type, cursor: cursorParam = '0', count = '100' } = req.query as Record<string, string>;
@@ -73,14 +73,14 @@ router.get(
   '/:key',
   keysLimiter,
   requirePermission(Permission.READ_KEY),
-  auditLog(AuditAction.READ_KEY, (req) => req.params.id),
+  auditLog(AuditAction.READ_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const client = await getRedisClient(connection, parseDb(req));
-      const key = decodeURIComponent(req.params.key);
+      const key = decodeURIComponent(req.params.key as string);
       const keyType = await client.type(key);
 
       if (keyType === 'none') { res.status(404).json({ error: 'Key not found' }); return; }
@@ -137,10 +137,10 @@ const setKeySchema = z.object({
 router.post(
   '/',
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const data = setKeySchema.parse(req.body);
@@ -154,7 +154,7 @@ router.post(
 
       res.status(201).json({ message: 'Key created', key: data.key });
     } catch (err) {
-      if (err instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: err.errors }); return; }
+      if (err instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: err.issues }); return; }
       res.status(500).json({ error: (err as Error).message });
     }
   }
@@ -164,14 +164,14 @@ router.put(
   '/:key',
   keysLimiter,
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const client = await getRedisClient(connection, parseDb(req));
-      const key = decodeURIComponent(req.params.key);
+      const key = decodeURIComponent(req.params.key as string);
       const { value, ttl } = req.body as { value?: unknown; ttl?: number };
 
       const keyType = await client.type(key);
@@ -195,15 +195,15 @@ router.put(
   '/:key/fields/:field',
   keysLimiter,
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const client = await getRedisClient(connection, parseDb(req));
-      const key = decodeURIComponent(req.params.key);
-      const field = decodeURIComponent(req.params.field);
+      const key = decodeURIComponent(req.params.key as string);
+      const field = decodeURIComponent(req.params.field as string);
       const { value } = req.body as { value: string };
 
       await client.hset(key, field, String(value));
@@ -218,15 +218,15 @@ router.delete(
   '/:key/fields/:field',
   keysLimiter,
   requirePermission(Permission.DELETE_KEY),
-  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id),
+  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const client = await getRedisClient(connection, parseDb(req));
-      const key = decodeURIComponent(req.params.key);
-      const field = decodeURIComponent(req.params.field);
+      const key = decodeURIComponent(req.params.key as string);
+      const field = decodeURIComponent(req.params.field as string);
 
       await client.hdel(key, field);
       res.json({ message: 'Field deleted' });
@@ -239,14 +239,14 @@ router.delete(
 router.patch(
   '/:key',
   requirePermission(Permission.WRITE_KEY),
-  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id),
+  auditLog(AuditAction.WRITE_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const client = await getRedisClient(connection, parseDb(req));
-      const key = decodeURIComponent(req.params.key);
+      const key = decodeURIComponent(req.params.key as string);
       const { value, ttl, field, score, member } = req.body as {
         value?: unknown; ttl?: number; field?: string; score?: number; member?: string;
       };
@@ -289,14 +289,14 @@ router.patch(
 router.delete(
   '/:key',
   requirePermission(Permission.DELETE_KEY),
-  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id),
+  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const client = await getRedisClient(connection, parseDb(req));
-      const key = decodeURIComponent(req.params.key);
+      const key = decodeURIComponent(req.params.key as string);
       await client.del(key);
       res.json({ message: 'Key deleted' });
     } catch (err) {
@@ -310,7 +310,7 @@ router.post(
   requirePermission(Permission.DELETE_KEY),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const { keys } = req.body as { keys: string[] };
@@ -332,10 +332,10 @@ router.post(
   '/delete-by-pattern',
   keysLimiter,
   requirePermission(Permission.DELETE_KEY),
-  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id),
+  auditLog(AuditAction.DELETE_KEY, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
-      const connection = await getConnection(req.params.id);
+      const connection = await getConnection(req.params.id as string);
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const { pattern } = req.body as { pattern: string };

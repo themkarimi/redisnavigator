@@ -26,7 +26,7 @@ const cliSchema = z.object({
 router.post(
   '/',
   requirePermission(Permission.READ_KEY),
-  auditLog(AuditAction.EXECUTE_CLI, (req) => req.params.id),
+  auditLog(AuditAction.EXECUTE_CLI, (req) => req.params.id as string),
   async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
     try {
       const { command } = cliSchema.parse(req.body);
@@ -53,7 +53,7 @@ router.post(
       }
 
       const connection = await prisma.redisConnection.findFirst({
-        where: { id: req.params.id, isActive: true },
+        where: { id: req.params.id as string, isActive: true },
       });
 
       if (!connection) {
@@ -68,7 +68,7 @@ router.post(
       res.json({ result, command });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: err.errors });
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
       res.json({ result: null, error: (err as Error).message, command: req.body.command });

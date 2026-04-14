@@ -29,6 +29,16 @@ jest.mock('../config/prisma', () => ({
   },
 }));
 
+// Mock openid-client v6 module functions used in auth.routes.ts
+jest.mock('openid-client', () => ({
+  randomPKCECodeVerifier: jest.fn().mockReturnValue('mock_verifier'),
+  calculatePKCECodeChallenge: jest.fn().mockResolvedValue('mock_challenge'),
+  randomState: jest.fn().mockReturnValue('mock_state'),
+  buildAuthorizationUrl: jest.fn().mockReturnValue(new URL('http://idp.example.com/auth?state=mock_state')),
+  authorizationCodeGrant: jest.fn(),
+  fetchUserInfo: jest.fn(),
+}));
+
 function makeRes(): Partial<Response> {
   const res: Partial<Response> = {};
   res.status = jest.fn().mockReturnValue(res);
@@ -105,16 +115,19 @@ describe('OIDC routes', () => {
       const oidcState = JSON.stringify({ state: 'test_state', codeVerifier: 'test_verifier' });
       const cookieVal = Buffer.from(oidcState).toString('base64');
 
-      const mockClient = {
-        callbackParams: jest.fn().mockReturnValue({ code: 'auth_code', state: 'test_state' }),
-        callback: jest.fn().mockResolvedValue({ access_token: 'oidc_access' }),
-        userinfo: jest.fn().mockResolvedValue({
+      const mockConfig = {};
+      (oidcModule.getOidcConfig as jest.Mock).mockResolvedValue(mockConfig);
+
+      const { authorizationCodeGrant } = await import('openid-client');
+      const mockTokens = {
+        access_token: 'oidc_access',
+        claims: jest.fn().mockReturnValue({
           sub: 'oidc-sub-123',
           email: 'oidcuser@example.com',
           name: 'OIDC User',
         }),
       };
-      (oidcModule.getOidcClient as jest.Mock).mockResolvedValue(mockClient);
+      (authorizationCodeGrant as jest.Mock).mockResolvedValue(mockTokens);
 
       (prismaModule.prisma.user.findUnique as jest.Mock)
         .mockResolvedValueOnce(null) // by oidcSub
@@ -135,6 +148,7 @@ describe('OIDC routes', () => {
         cookies: { oidc_state: cookieVal },
         headers: { 'user-agent': 'test-agent' },
         ip: '127.0.0.1',
+        query: { code: 'auth_code', state: 'test_state' },
         url: '/api/auth/oidc/callback?code=auth_code&state=test_state',
       } as Partial<Request>;
       const res = makeRes();

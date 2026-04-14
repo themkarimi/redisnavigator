@@ -16,7 +16,7 @@ export function requirePermission(...permissions: Permission[]) {
         return;
       }
 
-      const connectionId = req.params.id || req.params.connectionId;
+      const connectionId = (req.params.id || req.params.connectionId) as string | undefined;
 
       // Check if user is SuperAdmin (global)
       const isSuperAdmin = await prisma.userConnectionRole.findFirst({

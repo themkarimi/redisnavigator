@@ -226,7 +226,7 @@ export async function applyConfig(filePath: string): Promise<void> {
       if (grp.permissions?.length) {
         for (const gc of grp.permissions) {
           // Resolve connection ID — prefer connections created above, then DB lookup.
-          let connectionId = connectionNameToId.get(gc.name);
+          let connectionId: string | undefined = connectionNameToId.get(gc.name);
           if (!connectionId) {
             const dbConn = await prisma.redisConnection.findFirst({
               where: { name: gc.name, isActive: true },
@@ -238,12 +238,15 @@ export async function applyConfig(filePath: string): Promise<void> {
             connectionId = dbConn.id;
           }
 
+          // At this point connectionId is guaranteed to be a string (we `continue` above if not found)
+          const resolvedConnectionId = connectionId as string;
+
           await prisma.groupConnectionRole.upsert({
-            where: { groupId_connectionId: { groupId: group.id, connectionId } },
+            where: { groupId_connectionId: { groupId: group.id, connectionId: resolvedConnectionId } },
             update: { role: gc.role, permissions: ROLE_PERMISSIONS[gc.role] },
             create: {
               groupId: group.id,
-              connectionId,
+              connectionId: resolvedConnectionId,
               role: gc.role,
               permissions: ROLE_PERMISSIONS[gc.role],
             },
