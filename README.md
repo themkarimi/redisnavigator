@@ -110,6 +110,10 @@ CONFIG_FILE=./config.yaml
 
 See [`backend/config.example.yaml`](backend/config.example.yaml) for a fully annotated example.
 
+## Documentation
+
+- [Authentication & Authorization (OIDC / Keycloak)](docs/authentication-authorization.md)
+
 ## Helm Deployment
 
 A Helm chart is available under [`helm/redis-navigator`](helm/redis-navigator) for Kubernetes deployments.

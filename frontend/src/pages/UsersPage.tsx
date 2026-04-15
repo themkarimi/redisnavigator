@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { UserPlus, Trash2, ShieldAlert, Loader2 } from 'lucide-react'
+import { UserPlus, Trash2, ShieldAlert, Loader2, ShieldCheck } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { api } from '@/services/api'
 import { useConnectionStore } from '@/store/connectionStore'
@@ -219,6 +219,168 @@ function CreateUserDialog() {
   )
 }
 
+// ─── Assign Role Dialog ────────────────────────────────────────────────────────
+
+const assignRoleSchema = z.object({
+  connectionId: z.string().optional(), // undefined = global
+  role: z.enum(['SUPERADMIN', 'ADMIN', 'OPERATOR', 'VIEWER'] as const),
+})
+
+type AssignRoleFormValues = z.infer<typeof assignRoleSchema>
+
+const GLOBAL_CONNECTION_VALUE = '__global__'
+
+function AssignRoleDialog({
+  user,
+  isSuperAdmin,
+}: {
+  user: UserWithRoles
+  isSuperAdmin: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const connections = useConnectionStore((s) => s.connections)
+
+  const globalRole = user.connectionRoles.find((cr) => cr.connection === null)
+
+  const { control, handleSubmit, reset } = useForm<AssignRoleFormValues>({
+    resolver: zodResolver(assignRoleSchema),
+    defaultValues: {
+      connectionId: globalRole ? GLOBAL_CONNECTION_VALUE : undefined,
+      role: globalRole?.role ?? 'ADMIN',
+    },
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: (data: AssignRoleFormValues) =>
+      api.patch(`/users/${user.id}/role`, {
+        connectionId:
+          data.connectionId === GLOBAL_CONNECTION_VALUE || !data.connectionId
+            ? null
+            : data.connectionId,
+        role: data.role,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setOpen(false)
+      reset()
+      setApiError(null)
+    },
+    onError: (err) => {
+      if (isAxiosError(err)) {
+        const msg = err.response?.data?.message ?? err.response?.data?.error ?? 'Failed to assign role.'
+        setApiError(Array.isArray(msg) ? msg.join(', ') : String(msg))
+      } else {
+        setApiError('An unexpected error occurred.')
+      }
+    },
+  })
+
+  function onSubmit(values: AssignRoleFormValues) {
+    setApiError(null)
+    assignMutation.mutate(values)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { reset(); setApiError(null) } }}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-gray-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-8 w-8"
+          title="Assign role"
+        >
+          <ShieldCheck className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Assign Role — {user.name}</DialogTitle>
+          <DialogDescription>
+            Grant a role on a specific connection, or choose <strong>Global</strong> to give
+            admin-level access across all connections.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          {apiError && (
+            <Alert variant="destructive">
+              <AlertDescription>{apiError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-1.5">
+            <Label>Connection</Label>
+            <Controller
+              name="connectionId"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value ?? GLOBAL_CONNECTION_VALUE} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a connection" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={GLOBAL_CONNECTION_VALUE}>
+                      Global (all connections)
+                    </SelectItem>
+                    {connections.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Role</Label>
+            <Controller
+              name="role"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isSuperAdmin && <SelectItem value="SUPERADMIN">Super Admin</SelectItem>}
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    <SelectItem value="OPERATOR">Operator</SelectItem>
+                    <SelectItem value="VIEWER">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={assignMutation.isPending}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {assignMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                'Save Role'
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Delete Confirmation ───────────────────────────────────────────────────────
 
 function DeleteUserButton({ userId, userName }: { userId: string; userName: string }) {
@@ -281,6 +443,7 @@ function DeleteUserButton({ userId, userName }: { userId: string; userName: stri
 export default function UsersPage() {
   const currentUser = useAuthStore((s) => s.user)
   const canAccess = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN'
+  const isSuperAdmin = currentUser?.role === 'SUPERADMIN'
 
   const { data: users, isLoading, isError } = useQuery<UserWithRoles[]>({
     queryKey: ['users'],
@@ -363,17 +526,18 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {user.connectionRoles.filter(cr => cr.connection != null).length === 0 ? (
+                      {user.connectionRoles.length === 0 ? (
                         <span className="text-muted-foreground text-xs">No roles</span>
                       ) : (
-                        user.connectionRoles.filter(cr => cr.connection != null).map((cr) => (
+                        user.connectionRoles.map((cr, i) => (
                           <span
-                            key={`${user.id}-${cr.connection!.id}`}
+                            key={`${user.id}-${cr.connection?.id ?? 'global'}-${i}`}
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border ${ROLE_COLORS[cr.role] ?? 'bg-gray-600 text-white'}`}
-                            title={cr.connection!.name}
                           >
                             {cr.role}
-                            <span className="opacity-70">· {cr.connection!.name}</span>
+                            <span className="opacity-70">
+                              · {cr.connection ? cr.connection.name : 'Global'}
+                            </span>
                           </span>
                         ))
                       )}
@@ -388,7 +552,10 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {user.id !== currentUser?.id && (
-                      <DeleteUserButton userId={user.id} userName={user.name} />
+                      <div className="flex items-center justify-end gap-1">
+                        <AssignRoleDialog user={user} isSuperAdmin={isSuperAdmin} />
+                        <DeleteUserButton userId={user.id} userName={user.name} />
+                      </div>
                     )}
                   </td>
                 </tr>

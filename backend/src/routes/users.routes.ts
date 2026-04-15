@@ -22,7 +22,7 @@ const createUserSchema = z.object({
 });
 
 const updateRoleSchema = z.object({
-  connectionId: z.string(),
+  connectionId: z.string().nullable().optional(),
   role: z.nativeEnum(UserRole),
   permissions: z.array(z.nativeEnum(Permission)).optional(),
 });
@@ -101,15 +101,31 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const data = updateRoleSchema.parse(req.body);
+      const userId = req.params.id as string;
+      const connectionId = data.connectionId ?? null;
+      const permissions = data.permissions || ROLE_PERMISSIONS[data.role];
 
-      await prisma.userConnectionRole.upsert({
-        where: { userId_connectionId: { userId: req.params.id as string, connectionId: data.connectionId } },
-        update: { role: data.role, permissions: data.permissions || ROLE_PERMISSIONS[data.role] },
-        create: {
-          userId: req.params.id as string, connectionId: data.connectionId,
-          role: data.role, permissions: data.permissions || ROLE_PERMISSIONS[data.role],
-        },
-      });
+      if (connectionId === null) {
+        const existing = await prisma.userConnectionRole.findFirst({
+          where: { userId, connectionId: null },
+        });
+        if (existing) {
+          await prisma.userConnectionRole.update({
+            where: { id: existing.id },
+            data: { role: data.role, permissions },
+          });
+        } else {
+          await prisma.userConnectionRole.create({
+            data: { userId, connectionId: null, role: data.role, permissions },
+          });
+        }
+      } else {
+        await prisma.userConnectionRole.upsert({
+          where: { userId_connectionId: { userId, connectionId } },
+          update: { role: data.role, permissions },
+          create: { userId, connectionId, role: data.role, permissions },
+        });
+      }
 
       res.json({ message: 'Role updated' });
     } catch (err) {
