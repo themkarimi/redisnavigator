@@ -293,7 +293,7 @@ export default function ConnectionsPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-52 rounded-lg bg-muted animate-pulse" />
+            <div key={i} className="h-52 rounded-lg skeleton-shimmer" />
           ))}
         </div>
       ) : connections.length === 0 ? (
@@ -323,8 +323,8 @@ export default function ConnectionsPage() {
                 return (
                   <Card
                     key={conn.id}
-                    className={`relative transition-all hover:shadow-md ${
-                      isActive ? 'ring-2 ring-red-500 shadow-md' : ''
+                    className={`relative transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02] ${
+                      isActive ? 'ring-2 ring-red-500 shadow-lg' : 'hover:ring-1 hover:ring-red-500/20'
                     }`}
                   >
                     <CardHeader className="pb-2">
@@ -451,8 +451,8 @@ export default function ConnectionsPage() {
                 return (
                   <div
                     key={conn.id}
-                    className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 ${
-                      isActive ? 'bg-red-50 dark:bg-red-950/20' : ''
+                    className={`flex items-center gap-3 border-l-2 pl-[14px] pr-4 py-3 transition-all duration-150 hover:bg-muted/60 ${
+                      isActive ? 'bg-red-50 dark:bg-red-950/20 border-red-500' : 'border-transparent'
                     }`}
                   >
                     {/* Icon */}

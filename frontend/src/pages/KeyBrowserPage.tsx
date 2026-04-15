@@ -1467,12 +1467,13 @@ export default function KeyBrowserPage() {
                 onSelectKey={handleSelectKey}
               />
             ) : (
-              keys.map((k) => (
+              keys.map((k, i) => (
                 <button
                   key={k.key}
                   type="button"
                   onClick={() => handleSelectKey(k.key)}
-                  className={`w-full text-left px-3 py-2 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
+                  style={{ animationDelay: `${Math.min(i, 40) * 15}ms`, animationFillMode: 'both' }}
+                  className={`animate-in fade-in-0 slide-in-from-left-2 duration-150 w-full text-left px-3 py-2 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
                     selectedKey === k.key ? 'bg-muted' : ''
                   }`}
                 >

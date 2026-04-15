@@ -145,7 +145,7 @@ export function Sidebar() {
             return (
               <div
                 key={item.label}
-                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-600 cursor-not-allowed select-none"
+                className="flex items-center gap-3 border-l-2 border-transparent pl-[10px] pr-3 py-2 rounded-md text-sm text-gray-600 cursor-not-allowed select-none"
               >
                 {item.icon}
                 <span>{item.label}</span>
@@ -159,10 +159,10 @@ export function Sidebar() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                  'flex items-center gap-3 border-l-2 pl-[10px] pr-3 py-2 rounded-md text-sm transition-all duration-150',
                   isActive
-                    ? 'bg-red-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'border-white/60 bg-red-600 text-white'
+                    : 'border-transparent text-gray-300 hover:bg-gray-800 hover:text-white'
                 )
               }
             >
@@ -245,7 +245,7 @@ export function Sidebar() {
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          className="w-full flex items-center gap-3 border-l-2 border-transparent pl-[10px] pr-3 py-2 rounded-md text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-150"
         >
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
