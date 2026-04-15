@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  LayoutGrid,
+  List,
 } from 'lucide-react'
 import {
   useConnections,
@@ -117,6 +119,24 @@ export default function ConnectionsPage() {
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, 'success' | 'error'>>({})
 
+  // View mode (grid | list) persisted across sessions
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    try {
+      const stored = localStorage.getItem('connectionsViewMode')
+      return stored === 'grid' || stored === 'list' ? stored : 'grid'
+    } catch {
+      return 'grid'
+    }
+  })
+
+  const changeViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('connectionsViewMode', mode)
+    } catch {
+      // ignore storage errors
+    }
+  }
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   const updateField = <K extends keyof ConnectionFormData>(
@@ -232,15 +252,44 @@ export default function ConnectionsPage() {
             Manage your Redis server connections
           </p>
         </div>
-        {canManageConnections && (
-          <Button onClick={handleOpenCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Connection
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center border rounded-md overflow-hidden">
+            <button
+              type="button"
+              title="Grid view"
+              onClick={() => changeViewMode('grid')}
+              className={`p-2 transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              title="List view"
+              onClick={() => changeViewMode('list')}
+              className={`p-2 transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+          {canManageConnections && (
+            <Button onClick={handleOpenCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Connection
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Connection Grid */}
+      {/* Connection List / Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -264,51 +313,201 @@ export default function ConnectionsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {connections.map((conn) => {
-            const isActive = activeConnectionId === conn.id
-            const testResult = testResults[conn.id]
-            return (
-              <Card
-                key={conn.id}
-                className={`relative transition-all hover:shadow-md ${
-                  isActive ? 'ring-2 ring-red-500 shadow-md' : ''
-                }`}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Server
-                        className={`w-5 h-5 shrink-0 ${
-                          isActive ? 'text-red-500' : 'text-muted-foreground'
-                        }`}
-                      />
-                      <CardTitle className="text-base truncate">{conn.name}</CardTitle>
-                    </div>
-                    {isActive && (
-                      <Badge variant="secondary" className="ml-2 shrink-0 text-xs">
-                        Active
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
+        <>
+          {/* ── Grid View ── */}
+          {viewMode === 'grid' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {connections.map((conn) => {
+                const isActive = activeConnectionId === conn.id
+                const testResult = testResults[conn.id]
+                return (
+                  <Card
+                    key={conn.id}
+                    className={`relative transition-all hover:shadow-md ${
+                      isActive ? 'ring-2 ring-red-500 shadow-md' : ''
+                    }`}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Server
+                            className={`w-5 h-5 shrink-0 ${
+                              isActive ? 'text-red-500' : 'text-muted-foreground'
+                            }`}
+                          />
+                          <CardTitle className="text-base truncate">{conn.name}</CardTitle>
+                        </div>
+                        {isActive && (
+                          <Badge variant="secondary" className="ml-2 shrink-0 text-xs">
+                            Active
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
 
-                <CardContent className="space-y-3">
-                  <div className="space-y-1.5 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-foreground">
-                        {conn.host}:{conn.port}
-                      </span>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-1.5 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-foreground">
+                            {conn.host}:{conn.port}
+                          </span>
+                          {conn.useTLS && (
+                            <Badge variant="outline" className="text-xs py-0 px-1.5">
+                              TLS
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {conn.mode}
+                          </Badge>
+                          {testResult === 'success' && (
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          )}
+                          {testResult === 'error' && (
+                            <XCircle className="w-4 h-4 text-red-500" />
+                          )}
+                        </div>
+                        {conn.tags.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <Tag className="w-3 h-3 shrink-0" />
+                            {conn.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="bg-muted px-1.5 py-0.5 rounded text-xs"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                          onClick={() => handleConnect(conn)}
+                        >
+                          {isActive ? (
+                            <>
+                              <Wifi className="w-3 h-3 mr-1.5" />
+                              Connected
+                            </>
+                          ) : (
+                            'Connect'
+                          )}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-9 w-9"
+                          title="Test connection"
+                          onClick={() => handleTestExisting(conn)}
+                          disabled={testingId === conn.id}
+                        >
+                          {testingId === conn.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <TestTube className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                        {canManageConnections && (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-9 w-9"
+                            title="Edit connection"
+                            onClick={() => handleOpenEdit(conn)}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                        {canManageConnections && (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-9 w-9 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                            title="Delete connection"
+                            onClick={() => setDeleteId(conn.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+
+          {/* ── List View ── */}
+          {viewMode === 'list' && (
+            <div className="border rounded-lg overflow-hidden divide-y">
+              {connections.map((conn) => {
+                const isActive = activeConnectionId === conn.id
+                const testResult = testResults[conn.id]
+                return (
+                  <div
+                    key={conn.id}
+                    className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 ${
+                      isActive ? 'bg-red-50 dark:bg-red-950/20' : ''
+                    }`}
+                  >
+                    {/* Icon */}
+                    <Server
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? 'text-red-500' : 'text-muted-foreground'
+                      }`}
+                    />
+
+                    {/* Name */}
+                    <span className="font-medium text-sm w-32 sm:w-40 truncate shrink-0" title={conn.name}>
+                      {conn.name}
+                    </span>
+
+                    {/* Host:Port */}
+                    <span className="hidden sm:inline font-mono text-sm text-muted-foreground w-36 md:w-44 truncate shrink-0">
+                      {conn.host}:{conn.port}
+                    </span>
+
+                    {/* Badges */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="text-xs">
+                        {conn.mode}
+                      </Badge>
                       {conn.useTLS && (
                         <Badge variant="outline" className="text-xs py-0 px-1.5">
                           TLS
                         </Badge>
                       )}
+                      {isActive && (
+                        <Badge variant="secondary" className="text-xs">
+                          Active
+                        </Badge>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {conn.mode}
-                      </Badge>
+
+                    {/* Tags */}
+                    <div className="flex items-center gap-1 flex-1 min-w-0 flex-wrap">
+                      {conn.tags.length > 0 && (
+                        <>
+                          <Tag className="w-3 h-3 shrink-0 text-muted-foreground" />
+                          {conn.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="bg-muted px-1.5 py-0.5 rounded text-xs"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Test result icon */}
+                    <div className="shrink-0 w-5 flex justify-center">
                       {testResult === 'success' && (
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                       )}
@@ -316,78 +515,66 @@ export default function ConnectionsPage() {
                         <XCircle className="w-4 h-4 text-red-500" />
                       )}
                     </div>
-                    {conn.tags.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <Tag className="w-3 h-3 shrink-0" />
-                        {conn.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="bg-muted px-1.5 py-0.5 rounded text-xs"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                      onClick={() => handleConnect(conn)}
-                    >
-                      {isActive ? (
-                        <>
-                          <Wifi className="w-3 h-3 mr-1.5" />
-                          Connected
-                        </>
-                      ) : (
-                        'Connect'
-                      )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9"
-                      title="Test connection"
-                      onClick={() => handleTestExisting(conn)}
-                      disabled={testingId === conn.id}
-                    >
-                      {testingId === conn.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <TestTube className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
-                    {canManageConnections && (
+                    {/* Actions */}
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700 text-white h-8 px-3"
+                        onClick={() => handleConnect(conn)}
+                      >
+                        {isActive ? (
+                          <>
+                            <Wifi className="w-3 h-3 mr-1" />
+                            Connected
+                          </>
+                        ) : (
+                          'Connect'
+                        )}
+                      </Button>
                       <Button
                         size="icon"
                         variant="outline"
-                        className="h-9 w-9"
-                        title="Edit connection"
-                        onClick={() => handleOpenEdit(conn)}
+                        className="h-8 w-8"
+                        title="Test connection"
+                        onClick={() => handleTestExisting(conn)}
+                        disabled={testingId === conn.id}
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        {testingId === conn.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <TestTube className="w-3.5 h-3.5" />
+                        )}
                       </Button>
-                    )}
-                    {canManageConnections && (
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-9 w-9 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                        title="Delete connection"
-                        onClick={() => setDeleteId(conn.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
+                      {canManageConnections && (
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8"
+                          title="Edit connection"
+                          onClick={() => handleOpenEdit(conn)}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      {canManageConnections && (
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          title="Delete connection"
+                          onClick={() => setDeleteId(conn.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Create / Edit Dialog ── */}
