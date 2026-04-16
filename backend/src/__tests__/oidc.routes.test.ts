@@ -20,14 +20,25 @@ jest.mock('../config/env', () => ({
 }));
 
 jest.mock('../config/oidc');
-jest.mock('../config/prisma', () => ({
-  prisma: {
-    user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
-    refreshToken: { create: jest.fn() },
-    auditLog: { create: jest.fn() },
-    userConnectionRole: { findMany: jest.fn().mockResolvedValue([]) },
-  },
-}));
+jest.mock('../config/prisma', () => {
+  const txDeleteMany = jest.fn().mockResolvedValue({});
+  const txCreateMany = jest.fn().mockResolvedValue({});
+  return {
+    prisma: {
+      user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      refreshToken: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+      userConnectionRole: { findMany: jest.fn().mockResolvedValue([]) },
+      group: { findMany: jest.fn().mockResolvedValue([]) },
+      groupMember: { deleteMany: jest.fn().mockResolvedValue({}), createMany: jest.fn().mockResolvedValue({}) },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ groupMember: { deleteMany: txDeleteMany, createMany: txCreateMany } })
+      ),
+      _txDeleteMany: txDeleteMany,
+      _txCreateMany: txCreateMany,
+    },
+  };
+});
 
 // Mock openid-client v6 module functions used in auth.routes.ts
 jest.mock('openid-client', () => ({
@@ -160,6 +171,173 @@ describe('OIDC routes', () => {
       expect(res.redirect).toHaveBeenCalledWith(
         expect.stringContaining('http://localhost:3000/oidc/callback#access_token=')
       );
+    });
+  });
+
+  describe('GET /oidc/callback — group sync', () => {
+    function setupSuccessfulCallback(groupNames?: string[]) {
+      (envModule.env as any).OIDC_ENABLED = true;
+
+      const oidcState = JSON.stringify({ state: 'test_state', codeVerifier: 'test_verifier' });
+      const cookieVal = Buffer.from(oidcState).toString('base64');
+
+      const mockConfig = {};
+      (oidcModule.getOidcConfig as jest.Mock).mockResolvedValue(mockConfig);
+
+      const { authorizationCodeGrant } = require('openid-client');
+      const claims: Record<string, unknown> = {
+        sub: 'oidc-sub-sync',
+        email: 'syncuser@example.com',
+        name: 'Sync User',
+      };
+      if (groupNames !== undefined) {
+        claims[(envModule.env as any).OIDC_GROUPS_CLAIM || 'groups'] = groupNames;
+      }
+      const mockTokens = {
+        access_token: 'oidc_access',
+        claims: jest.fn().mockReturnValue(claims),
+      };
+      (authorizationCodeGrant as jest.Mock).mockResolvedValue(mockTokens);
+
+      (prismaModule.prisma.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      (prismaModule.prisma.user.create as jest.Mock).mockResolvedValue({
+        id: 'user-sync',
+        email: 'syncuser@example.com',
+        name: 'Sync User',
+        isActive: true,
+      });
+      (prismaModule.prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
+      (prismaModule.prisma.auditLog.create as jest.Mock).mockResolvedValue({});
+
+      return cookieVal;
+    }
+
+    it('does not call group sync when OIDC_SYNC_GROUPS is false', async () => {
+      (envModule.env as any).OIDC_SYNC_GROUPS = false;
+      const cookieVal = setupSuccessfulCallback(['/DevOps']);
+
+      const handler = await getOidcHandler('GET', '/oidc/callback');
+      if (!handler) return;
+
+      const req = {
+        cookies: { oidc_state: cookieVal },
+        headers: { 'user-agent': 'test-agent' },
+        ip: '127.0.0.1',
+        query: { code: 'auth_code', state: 'test_state' },
+      } as Partial<Request>;
+      const res = makeRes();
+
+      await handler(req, res, jest.fn());
+
+      expect(prismaModule.prisma.group.findMany).not.toHaveBeenCalled();
+      expect(prismaModule.prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('syncs group memberships when OIDC_SYNC_GROUPS is true and groups are found', async () => {
+      (envModule.env as any).OIDC_SYNC_GROUPS = true;
+      (envModule.env as any).OIDC_GROUPS_CLAIM = 'groups';
+      const cookieVal = setupSuccessfulCallback(['/DevOps', 'Analysts']);
+
+      (prismaModule.prisma.group.findMany as jest.Mock).mockResolvedValue([
+        { id: 'group-devops' },
+        { id: 'group-analysts' },
+      ]);
+
+      const handler = await getOidcHandler('GET', '/oidc/callback');
+      if (!handler) return;
+
+      const req = {
+        cookies: { oidc_state: cookieVal },
+        headers: { 'user-agent': 'test-agent' },
+        ip: '127.0.0.1',
+        query: { code: 'auth_code', state: 'test_state' },
+      } as Partial<Request>;
+      const res = makeRes();
+
+      await handler(req, res, jest.fn());
+
+      expect(prismaModule.prisma.group.findMany).toHaveBeenCalledWith({
+        where: { name: { in: ['DevOps', 'Analysts'] } },
+        select: { id: true },
+      });
+      expect(prismaModule.prisma.$transaction).toHaveBeenCalled();
+      // Verify the operations executed within the transaction
+      expect((prismaModule.prisma as any)._txDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-sync' } });
+      expect((prismaModule.prisma as any)._txCreateMany).toHaveBeenCalledWith({
+        data: [
+          { groupId: 'group-devops', userId: 'user-sync' },
+          { groupId: 'group-analysts', userId: 'user-sync' },
+        ],
+        skipDuplicates: true,
+      });
+      expect(res.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('http://localhost:3000/oidc/callback#access_token=')
+      );
+    });
+
+    it('syncs with empty membership list when no Keycloak groups match RedisNavigator groups', async () => {
+      (envModule.env as any).OIDC_SYNC_GROUPS = true;
+      (envModule.env as any).OIDC_GROUPS_CLAIM = 'groups';
+      const cookieVal = setupSuccessfulCallback(['/UnknownGroup']);
+
+      (prismaModule.prisma.group.findMany as jest.Mock).mockResolvedValue([]);
+
+      const handler = await getOidcHandler('GET', '/oidc/callback');
+      if (!handler) return;
+
+      const req = {
+        cookies: { oidc_state: cookieVal },
+        headers: { 'user-agent': 'test-agent' },
+        ip: '127.0.0.1',
+        query: { code: 'auth_code', state: 'test_state' },
+      } as Partial<Request>;
+      const res = makeRes();
+
+      await handler(req, res, jest.fn());
+
+      expect(prismaModule.prisma.group.findMany).toHaveBeenCalledWith({
+        where: { name: { in: ['UnknownGroup'] } },
+        select: { id: true },
+      });
+      expect(prismaModule.prisma.$transaction).toHaveBeenCalled();
+      expect((prismaModule.prisma as any)._txDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-sync' } });
+      // createMany should not be called when there are no matching groups
+      expect((prismaModule.prisma as any)._txCreateMany).not.toHaveBeenCalled();
+      expect(res.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('http://localhost:3000/oidc/callback#access_token=')
+      );
+    });
+
+    it('syncs with empty membership list when groups claim is absent', async () => {
+      (envModule.env as any).OIDC_SYNC_GROUPS = true;
+      (envModule.env as any).OIDC_GROUPS_CLAIM = 'groups';
+      // No groups claim in token
+      const cookieVal = setupSuccessfulCallback(undefined);
+
+      (prismaModule.prisma.group.findMany as jest.Mock).mockResolvedValue([]);
+
+      const handler = await getOidcHandler('GET', '/oidc/callback');
+      if (!handler) return;
+
+      const req = {
+        cookies: { oidc_state: cookieVal },
+        headers: { 'user-agent': 'test-agent' },
+        ip: '127.0.0.1',
+        query: { code: 'auth_code', state: 'test_state' },
+      } as Partial<Request>;
+      const res = makeRes();
+
+      await handler(req, res, jest.fn());
+
+      expect(prismaModule.prisma.group.findMany).toHaveBeenCalledWith({
+        where: { name: { in: [] } },
+        select: { id: true },
+      });
+      expect(prismaModule.prisma.$transaction).toHaveBeenCalled();
+      expect((prismaModule.prisma as any)._txDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-sync' } });
+      expect((prismaModule.prisma as any)._txCreateMany).not.toHaveBeenCalled();
     });
   });
 });

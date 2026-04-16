@@ -19,6 +19,8 @@ export const env = {
   OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID || '',
   OIDC_CLIENT_SECRET: process.env.OIDC_CLIENT_SECRET || '',
   OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI || 'http://localhost:4000/api/auth/oidc/callback',
+  OIDC_SYNC_GROUPS: process.env.OIDC_SYNC_GROUPS === 'true',
+  OIDC_GROUPS_CLAIM: process.env.OIDC_GROUPS_CLAIM || 'groups',
   CONFIG_FILE: process.env.CONFIG_FILE || '',
   CONFIG_AS_CODE: !!process.env.CONFIG_FILE,
   DISABLED_COMMANDS: (process.env.DISABLED_COMMANDS || '')
