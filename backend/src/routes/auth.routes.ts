@@ -59,6 +59,37 @@ async function storeRefreshTokenAndSetCookie(
   });
 }
 
+/**
+ * Syncs a user's group memberships to match the groups provided by the OIDC
+ * provider.  Only groups that already exist in RedisNavigator (matched by name)
+ * are considered; unrecognised Keycloak groups are silently ignored.
+ * Leading '/' characters are stripped from Keycloak path-style names before
+ * matching (e.g. "/DevOps" → "DevOps").
+ *
+ * All existing group memberships for the user are replaced on every call so
+ * that Keycloak remains the single source of truth for membership.
+ */
+async function syncOidcGroups(userId: string, rawGroupNames: string[]): Promise<void> {
+  const groupNames = rawGroupNames.map((n) => n.replace(/^\//, ''));
+
+  const matchedGroups = await prisma.group.findMany({
+    where: { name: { in: groupNames } },
+    select: { id: true },
+  });
+
+  const matchedGroupIds = matchedGroups.map((g) => g.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.groupMember.deleteMany({ where: { userId } });
+    if (matchedGroupIds.length > 0) {
+      await tx.groupMember.createMany({
+        data: matchedGroupIds.map((groupId) => ({ groupId, userId })),
+        skipDuplicates: true,
+      });
+    }
+  });
+}
+
 async function getUserHighestRole(userId: string): Promise<UserRole | null> {
   const roles = await prisma.userConnectionRole.findMany({
     where: { userId },
@@ -369,6 +400,14 @@ router.get('/oidc/callback', async (req: Request, res: Response): Promise<void> 
     if (!user.isActive) {
       res.redirect(`${env.FRONTEND_URL}/login?error=account_inactive`);
       return;
+    }
+
+    if (env.OIDC_SYNC_GROUPS) {
+      const rawGroups = (claims?.[env.OIDC_GROUPS_CLAIM] ?? userinfo?.[env.OIDC_GROUPS_CLAIM]) as unknown;
+      const groupNames = Array.isArray(rawGroups)
+        ? (rawGroups as unknown[]).filter((item): item is string => typeof item === 'string')
+        : [];
+      await syncOidcGroups(user.id, groupNames);
     }
 
     const accessToken = signAccessToken({ userId: user.id, email: user.email });

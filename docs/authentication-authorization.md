@@ -13,6 +13,7 @@ RedisNavigator supports two authentication methods: local username/password and 
   - [Application Configuration](#application-configuration)
   - [Docker Compose Example](#docker-compose-example)
   - [Helm Example](#helm-example)
+  - [Keycloak Group Sync](#keycloak-group-sync)
 - [Authorization & RBAC](#authorization--rbac)
   - [Roles & Permissions](#roles--permissions)
   - [Assigning Roles](#assigning-roles)
@@ -160,6 +161,58 @@ oidc:
 
 ---
 
+### Keycloak Group Sync
+
+When `OIDC_SYNC_GROUPS=true`, RedisNavigator automatically mirrors a user's Keycloak group membership into the local group model on every SSO login. This lets you centralise access control in Keycloak: add or remove a user from a Keycloak group and the change takes effect at their next login — no manual steps in the RedisNavigator UI required.
+
+#### How it works
+
+1. After a successful OIDC login, the backend reads an array of group names from the ID token (or userinfo endpoint) using the claim name configured by `OIDC_GROUPS_CLAIM` (default: `groups`).
+2. Each name is normalised by stripping any leading `/` so that Keycloak path-style names (e.g. `/DevOps`) match flat names (`DevOps`).
+3. The user's existing RedisNavigator group memberships are **fully replaced** to exactly reflect the Keycloak groups — Keycloak is treated as the authoritative source. Memberships that were set manually via the UI or API are overridden.
+4. Keycloak groups that have no matching group in RedisNavigator are silently ignored. You must create the group in RedisNavigator first and assign connection permissions to it before the sync will grant access.
+
+#### Keycloak setup
+
+1. In Keycloak Admin Console, open your client, go to **Client Scopes → (your client)-dedicated → Mappers** (or use the client's own **Mappers** tab).
+2. Click **Add mapper → By configuration** and select **Group Membership**.
+3. Configure the mapper:
+
+   | Field | Value |
+   |-------|-------|
+   | Name | `groups` |
+   | Token Claim Name | `groups` (or your custom claim name) |
+   | Full group path | OFF (recommended) — strips the leading `/` automatically; ON also works because RedisNavigator normalises paths |
+   | Add to ID token | ON |
+   | Add to access token | ON (optional) |
+   | Add to userinfo | ON |
+
+4. Save the mapper. Keycloak will now include a `groups` array in the ID token for this client.
+
+#### Application configuration
+
+Add the following variables to `backend/.env` alongside the existing OIDC variables:
+
+```env
+OIDC_SYNC_GROUPS=true
+# Optional: override the claim name if your mapper uses a different name
+# OIDC_GROUPS_CLAIM=groups
+```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OIDC_SYNC_GROUPS` | Enable Keycloak → RedisNavigator group sync | `false` |
+| `OIDC_GROUPS_CLAIM` | ID token claim that contains the group names array | `groups` |
+
+#### End-to-end example
+
+1. Create a group `DevOps` in **Settings → Groups** and assign it `OPERATOR` access to your production Redis connection.
+2. In Keycloak, create a group `DevOps` and add users to it.
+3. Set `OIDC_SYNC_GROUPS=true` and restart the backend.
+4. The next time a member of the Keycloak `DevOps` group logs in via SSO, they are automatically placed in the RedisNavigator `DevOps` group and gain `OPERATOR` access to the production connection.
+
+---
+
 ## Authorization & RBAC
 
 ### Roles & Permissions
@@ -256,7 +309,7 @@ CONFIG_FILE=./config.yaml
 
 The config is applied on every startup. Entries are created or updated; nothing is deleted automatically. Members are matched by email — if the user does not exist yet (e.g. they have not logged in via SSO for the first time), the group membership is created and will be linked once they do.
 
-> **Note:** RedisNavigator does not automatically map Keycloak realm roles or groups to application roles. Use the config-as-code approach or the UI to assign roles after a user's first SSO login.
+> **Note:** RedisNavigator does not automatically map Keycloak **realm roles** to application roles. Use the config-as-code approach or the UI to assign roles after a user's first SSO login. For group-based access, enable [Keycloak Group Sync](#keycloak-group-sync) instead.
 
 ---
 
