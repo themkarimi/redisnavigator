@@ -55,6 +55,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import type { RedisConnection, ConnectionMode } from '@/types'
 
@@ -118,6 +119,7 @@ export default function ConnectionsPage() {
   // Per-card test state
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, 'success' | 'error'>>({})
+  const [keepPassword, setKeepPassword] = useState(false)
 
   // View mode (grid | list) persisted across sessions
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
@@ -165,6 +167,7 @@ export default function ConnectionsPage() {
       tags: conn.tags.join(', '),
     })
     setEditingId(conn.id)
+    setKeepPassword(true)
     setDialogOpen(true)
   }
 
@@ -180,7 +183,7 @@ export default function ConnectionsPage() {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
-      ...(editingId && password === '' ? {} : { password }),
+      ...(editingId && keepPassword ? {} : { password }),
     }
     try {
       if (editingId) {
@@ -626,7 +629,7 @@ export default function ConnectionsPage() {
             </div>
 
             {/* Username + Password */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="conn-username">Username</Label>
                 <Input
@@ -636,21 +639,32 @@ export default function ConnectionsPage() {
                   onChange={(e) => updateField('username', e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="conn-password">
-                  Password{' '}
-                  {editingId && (
-                    <span className="text-muted-foreground text-xs">(leave blank to keep)</span>
-                  )}
-                </Label>
-                <Input
-                  id="conn-password"
-                  type="password"
-                  placeholder="optional"
-                  value={formData.password}
-                  onChange={(e) => updateField('password', e.target.value)}
-                />
-              </div>
+
+              {editingId && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="keep-password"
+                    checked={keepPassword}
+                    onCheckedChange={(checked) => setKeepPassword(!!checked)}
+                  />
+                  <Label htmlFor="keep-password" className="cursor-pointer text-sm font-normal">
+                    Keep existing password
+                  </Label>
+                </div>
+              )}
+
+              {(!editingId || !keepPassword) && (
+                <div className="space-y-2">
+                  <Label htmlFor="conn-password">Password</Label>
+                  <Input
+                    id="conn-password"
+                    type="password"
+                    placeholder="optional"
+                    value={formData.password}
+                    onChange={(e) => updateField('password', e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Mode */}

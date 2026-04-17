@@ -6,10 +6,16 @@ interface ThemeStore {
   toggleTheme: () => void;
 }
 
+function systemTheme(): 'dark' | 'light' {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light'
+}
+
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set, get) => ({
-      theme: 'dark',
+      theme: systemTheme(),
       toggleTheme: () => {
         const newTheme = get().theme === 'dark' ? 'light' : 'dark';
         set({ theme: newTheme });

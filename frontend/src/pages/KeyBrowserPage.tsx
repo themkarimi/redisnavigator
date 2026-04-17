@@ -1,13 +1,17 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown, ChevronRight, Folder, FolderOpen, List, Network } from 'lucide-react'
+import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown, ChevronRight, Folder, FolderOpen, List, Network, Download } from 'lucide-react'
+import CodeMirror from '@uiw/react-codemirror'
+import { json } from '@codemirror/lang-json'
+import { oneDark } from '@codemirror/theme-one-dark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -33,10 +37,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { useDeleteKeysByPattern, useCreateKey } from '@/hooks/useKeys'
+import { useDeleteKeysByPattern, useCreateKey, useBulkDeleteKeys } from '@/hooks/useKeys'
 import { api } from '@/services/api'
 import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useThemeStore } from '@/store/themeStore'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { buildKeyTree, type KeyTreeNode, type NamespaceNode } from '@/utils/keyTree'
 
@@ -80,6 +85,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
+function TtlIndicator({ ttl }: { ttl: number }) {
+  if (ttl === -1) return null
+  if (ttl === -2) return <span className="text-[10px] font-mono text-red-500 shrink-0">exp</span>
+  const color = ttl < 300 ? 'text-red-400' : ttl < 3600 ? 'text-amber-400' : 'text-green-400/70'
+  return <span className={`text-[10px] font-mono shrink-0 ${color}`}>{formatTTL(ttl)}</span>
+}
+
 function prettyValue(raw: unknown): string {
   if (typeof raw !== 'string') {
     try { return JSON.stringify(raw, null, 2) } catch { return String(raw ?? '') }
@@ -112,9 +124,14 @@ interface EditorProps {
 function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
+  const theme = useThemeStore((s) => s.theme)
   const [editValue, setEditValue] = useState(() => prettyValue(detail.value))
 
   useEffect(() => { setEditValue(prettyValue(detail.value)) }, [detail.value])
+
+  const isJson = (() => {
+    try { JSON.parse(typeof detail.value === 'string' ? detail.value : JSON.stringify(detail.value)); return true } catch { return false }
+  })()
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -135,12 +152,27 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
 
   return (
     <div className="flex flex-col gap-3 h-full p-4">
-      <Textarea
-        value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
-        className="flex-1 min-h-[280px] font-mono text-sm resize-none"
-        spellCheck={false}
-      />
+      {isJson ? (
+        <div className="flex-1 min-h-[280px] rounded-md overflow-hidden border border-input text-sm">
+          <CodeMirror
+            value={editValue}
+            height="100%"
+            minHeight="280px"
+            extensions={[json()]}
+            theme={theme === 'dark' ? oneDark : undefined}
+            onChange={(val) => setEditValue(val)}
+            basicSetup={{ lineNumbers: true, foldGutter: true }}
+            style={{ fontSize: '0.8125rem' }}
+          />
+        </div>
+      ) : (
+        <Textarea
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          className="flex-1 min-h-[280px] font-mono text-sm resize-none"
+          spellCheck={false}
+        />
+      )}
       <div className="flex justify-end">
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
           <Save className="w-4 h-4 mr-2" />
@@ -1204,6 +1236,7 @@ export default function KeyBrowserPage() {
   const { toast } = useToast()
   const scanCount = useSettingsStore((s) => s.scanCount)
   const deleteByPatternMutation = useDeleteKeysByPattern()
+  const bulkDeleteMutation = useBulkDeleteKeys()
 
   const [searchInput, setSearchInput]   = useState('*')
   const [pattern, setPattern]           = useState('*')
@@ -1220,6 +1253,12 @@ export default function KeyBrowserPage() {
   const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
   const [addKeyOpen, setAddKeyOpen]         = useState(false)
   const [treeView, setTreeView]             = useState(true)
+
+  // Bulk selection
+  const [selectedKeys, setSelectedKeys]     = useState<Set<string>>(new Set())
+  const [bulkTtlOpen, setBulkTtlOpen]       = useState(false)
+  const [bulkTtlValue, setBulkTtlValue]     = useState('')
+  const [isBulkTtlPending, setIsBulkTtlPending] = useState(false)
 
   // Resizable left panel
   const [panelWidth, setPanelWidth] = useState(300)
@@ -1260,6 +1299,7 @@ export default function KeyBrowserPage() {
     setKeys([])
     setScanCursor('0')
     setHasMore(false)
+    setSelectedKeys(new Set())
     api.get<{ keys: RedisKey[]; cursor: string }>(
       `/connections/${connectionId}/keys`,
       { params: { pattern, db, count: scanCount, cursor: '0' } },
@@ -1353,6 +1393,80 @@ export default function KeyBrowserPage() {
     )
   }, [connectionId, pattern, db, toast, deleteByPatternMutation])
 
+  const handleBulkDelete = useCallback(() => {
+    if (selectedKeys.size === 0) return
+    const confirmed = window.confirm(`Delete ${selectedKeys.size} selected key${selectedKeys.size > 1 ? 's' : ''}?`)
+    if (!confirmed) return
+    bulkDeleteMutation.mutate(
+      { connectionId, keys: [...selectedKeys] },
+      {
+        onSuccess: () => {
+          toast({ title: 'Deleted', description: `${selectedKeys.size} key${selectedKeys.size > 1 ? 's' : ''} deleted.` })
+          setSelectedKeys(new Set())
+          if (selectedKey && selectedKeys.has(selectedKey)) setSelectedKey(null)
+          setReloadTrigger((n) => n + 1)
+        },
+        onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Bulk delete failed.'), variant: 'destructive' }),
+      }
+    )
+  }, [connectionId, selectedKeys, selectedKey, bulkDeleteMutation, toast])
+
+  const handleBulkExport = useCallback(() => {
+    const data = keys.filter((k) => selectedKeys.has(k.key))
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `redis-keys-${connectionId}-db${db}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: 'Exported', description: `${data.length} keys exported as JSON.` })
+  }, [keys, selectedKeys, connectionId, db, toast])
+
+  const handleBulkSetTtl = useCallback(async () => {
+    const parsedTtl = parseInt(bulkTtlValue, 10)
+    if (isNaN(parsedTtl) || parsedTtl < -1) return
+    setIsBulkTtlPending(true)
+    try {
+      await Promise.all(
+        [...selectedKeys].map((key) =>
+          api.patch(
+            `/connections/${connectionId}/keys/${encodeURIComponent(key)}`,
+            { ttl: parsedTtl },
+            { params: { db } }
+          )
+        )
+      )
+      toast({ title: 'TTL updated', description: `${selectedKeys.size} key${selectedKeys.size > 1 ? 's' : ''} updated.` })
+      setBulkTtlOpen(false)
+      setBulkTtlValue('')
+      setReloadTrigger((n) => n + 1)
+    } catch (err) {
+      toast({ title: 'Error', description: getApiErrorMessage(err, 'Failed to set TTL.'), variant: 'destructive' })
+    } finally {
+      setIsBulkTtlPending(false)
+    }
+  }, [connectionId, db, selectedKeys, bulkTtlValue, toast])
+
+  const toggleKeySelection = useCallback((key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }, [])
+
+  const allVisibleSelected = keys.length > 0 && keys.every((k) => selectedKeys.has(k.key))
+  const someSelected = selectedKeys.size > 0
+
+  const handleSelectAll = useCallback(() => {
+    if (allVisibleSelected) {
+      setSelectedKeys(new Set())
+    } else {
+      setSelectedKeys(new Set(keys.map((k) => k.key)))
+    }
+  }, [allVisibleSelected, keys])
+
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -1423,13 +1537,24 @@ export default function KeyBrowserPage() {
             </Button>
           </div>
 
-          {/* Key count and delete by pattern */}
+          {/* Key count, select-all, and delete by pattern */}
           <div className="flex items-center justify-between pl-0.5">
-            <p className="text-xs text-muted-foreground">
-              {isLoading
-                ? 'Loading…'
-                : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
-            </p>
+            {!treeView && keys.length > 0 ? (
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <Checkbox
+                  checked={allVisibleSelected}
+                  onCheckedChange={handleSelectAll}
+                  className="h-3.5 w-3.5"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {isLoading ? 'Loading…' : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
+                </span>
+              </label>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? 'Loading…' : `${keys.length} key${keys.length !== 1 ? 's' : ''}`}
+              </p>
+            )}
             {!isLoading && keys.length > 0 && (
               <Button
                 variant="ghost"
@@ -1444,6 +1569,42 @@ export default function KeyBrowserPage() {
               </Button>
             )}
           </div>
+
+          {/* Bulk action toolbar */}
+          {someSelected && (
+            <div className="flex items-center gap-1.5 px-0.5 py-1 bg-muted/60 rounded-md">
+              <span className="text-xs font-medium text-muted-foreground pl-1 shrink-0">
+                {selectedKeys.size} selected
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs text-destructive hover:text-destructive ml-auto"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleteMutation.isPending}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs"
+                onClick={() => setBulkTtlOpen(true)}
+              >
+                TTL
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs"
+                onClick={handleBulkExport}
+              >
+                <Download className="w-3 h-3 mr-1" />
+                Export
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Keys */}
@@ -1468,19 +1629,30 @@ export default function KeyBrowserPage() {
               />
             ) : (
               keys.map((k, i) => (
-                <button
+                <div
                   key={k.key}
-                  type="button"
-                  onClick={() => handleSelectKey(k.key)}
                   style={{ animationDelay: `${Math.min(i, 40) * 15}ms`, animationFillMode: 'both' }}
-                  className={`animate-in fade-in-0 slide-in-from-left-2 duration-150 w-full text-left px-3 py-2 flex items-center gap-2 overflow-hidden hover:bg-muted/60 transition-colors ${
+                  className={`animate-in fade-in-0 slide-in-from-left-2 duration-150 w-full flex items-center gap-1.5 px-2 py-1.5 overflow-hidden hover:bg-muted/60 transition-colors ${
                     selectedKey === k.key ? 'bg-muted' : ''
                   }`}
                 >
-                  <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                  <span className="font-mono text-xs truncate flex-1 min-w-0" title={k.key}>{k.key}</span>
-                  <TypeBadge type={k.type} />
-                </button>
+                  <Checkbox
+                    checked={selectedKeys.has(k.key)}
+                    onCheckedChange={() => toggleKeySelection(k.key)}
+                    className="h-3.5 w-3.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSelectKey(k.key)}
+                    className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden text-left"
+                  >
+                    <Key className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                    <span className="font-mono text-xs truncate flex-1 min-w-0" title={k.key}>{k.key}</span>
+                    <TtlIndicator ttl={k.ttl} />
+                    <TypeBadge type={k.type} />
+                  </button>
+                </div>
               ))
             )}
           </div>
@@ -1538,6 +1710,39 @@ export default function KeyBrowserPage() {
         db={db}
         onCreated={handleKeyCreated}
       />
+
+      {/* ── Bulk TTL Dialog ── */}
+      <Dialog open={bulkTtlOpen} onOpenChange={setBulkTtlOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set TTL for {selectedKeys.size} key{selectedKeys.size > 1 ? 's' : ''}</DialogTitle>
+            <DialogDescription>
+              Enter TTL in seconds. Use -1 to remove expiry (persist forever).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="bulk-ttl">TTL (seconds)</Label>
+            <Input
+              id="bulk-ttl"
+              type="number"
+              min="-1"
+              placeholder="e.g. 3600"
+              value={bulkTtlValue}
+              onChange={(e) => setBulkTtlValue(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleBulkSetTtl()}
+            />
+          </div>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setBulkTtlOpen(false)} disabled={isBulkTtlPending}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkSetTtl} disabled={isBulkTtlPending || !bulkTtlValue}>
+              {isBulkTtlPending ? 'Updating…' : 'Set TTL'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )
