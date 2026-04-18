@@ -90,18 +90,18 @@ export async function assertSafeRedisHost(host: string): Promise<void> {
   // Resolve to A and AAAA records. Reject if *any* address is private — an
   // attacker could otherwise use DNS rebinding or a hostname that resolves
   // to a mix of public and private IPs.
-  let addresses: { address: string }[];
+  let resolvedAddresses: { address: string }[];
   try {
-    addresses = await dns.lookup(trimmed, { all: true, verbatim: true });
+    resolvedAddresses = await dns.lookup(trimmed, { all: true, verbatim: true });
   } catch {
     throw new Error('Unable to resolve host');
   }
 
-  if (addresses.length === 0) {
+  if (resolvedAddresses.length === 0) {
     throw new Error('Unable to resolve host');
   }
 
-  for (const { address } of addresses) {
+  for (const { address } of resolvedAddresses) {
     if (isPrivateOrReservedIp(address)) {
       throw new Error('Connecting to private or reserved addresses is not allowed');
     }

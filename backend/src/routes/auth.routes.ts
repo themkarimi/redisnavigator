@@ -13,6 +13,7 @@ import {
 import { prisma } from '../config/prisma';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { sameOriginOnly } from '../middleware/csrf.middleware';
 import { AuthenticatedRequest } from '../types';
 import { env } from '../config/env';
 import { AuditAction, UserRole } from '@prisma/client';
@@ -167,7 +168,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
   }
 });
 
-router.post('/refresh', authLimiter, async (req: Request, res: Response): Promise<void> => {
+router.post('/refresh', authLimiter, sameOriginOnly, async (req: Request, res: Response): Promise<void> => {
   try {
     const token = req.cookies?.refreshToken;
     if (!token) {
@@ -220,7 +221,7 @@ router.post('/refresh', authLimiter, async (req: Request, res: Response): Promis
   }
 });
 
-router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.post('/logout', sameOriginOnly, authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const token = req.cookies?.refreshToken;
 

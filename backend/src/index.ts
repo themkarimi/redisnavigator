@@ -21,6 +21,11 @@ import { setupMetricsSocket } from './sockets/metrics.socket';
 import { applyConfig } from './services/config-loader';
 
 const app = express();
+// When deployed behind nginx / an ingress, the client IP arrives in the
+// `X-Forwarded-For` header. Trusting one hop of proxy lets `req.ip` and
+// rate-limit keying reflect the real client rather than the proxy itself.
+// Operators running without a proxy are unaffected (the header won't be set).
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || '1'));
 const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {

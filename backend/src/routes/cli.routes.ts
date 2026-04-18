@@ -101,7 +101,10 @@ router.post(
       // module versions). Surface a generic message to the client and keep
       // the full detail in the server log for operators.
       logger.warn(`CLI command failed: ${(err as Error).message}`);
-      res.status(500).json({ result: null, error: 'Command execution failed', command: req.body?.command });
+      // Command is intentionally not echoed back in the error body: error
+      // branches can otherwise leak command-specific behavior differences to
+      // the caller. Full context is preserved in the server log above.
+      res.status(500).json({ result: null, error: 'Command execution failed' });
     }
   }
 );

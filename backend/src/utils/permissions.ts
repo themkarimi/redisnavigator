@@ -15,6 +15,11 @@ import { ROLE_PERMISSIONS } from './rolePermissions';
  * Keeping this logic in sync with the REST middleware ensures that realtime
  * channels (pub/sub, metrics) cannot be used to escape the RBAC that gates
  * the HTTP API.
+ *
+ * @param userId              ID of the authenticated user.
+ * @param connectionId        ID of the Redis connection being accessed.
+ * @param requiredPermissions One or more permissions that must **all** be
+ *                            satisfied for the call to be authorised.
  */
 export async function userHasConnectionPermission(
   userId: string,
