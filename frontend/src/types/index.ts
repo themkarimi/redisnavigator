@@ -39,9 +39,15 @@ export interface RedisKey {
   ttl: number;
 }
 
+export type BinaryEncoding = 'utf8' | 'base64'
+
 export interface RedisKeyDetail extends RedisKey {
   value: unknown;
   keySize?: number;
+  encoding?: BinaryEncoding;
+  fieldEncodings?: Record<string, BinaryEncoding>;
+  elementEncodings?: BinaryEncoding[];
+  memberEncodings?: BinaryEncoding[];
 }
 
 export interface ServerInfo {

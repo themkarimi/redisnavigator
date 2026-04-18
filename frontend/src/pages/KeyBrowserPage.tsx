@@ -39,7 +39,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useDeleteKeysByPattern, useCreateKey, useBulkDeleteKeys } from '@/hooks/useKeys'
 import { api } from '@/services/api'
-import type { RedisKey, RedisKeyDetail, RedisKeyType } from '@/types'
+import type { RedisKey, RedisKeyDetail, RedisKeyType, BinaryEncoding } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { getApiErrorMessage } from '@/utils/apiError'
@@ -99,6 +99,47 @@ function prettyValue(raw: unknown): string {
   try { return JSON.stringify(JSON.parse(raw), null, 2) } catch { return raw }
 }
 
+// ─── Binary data helpers ──────────────────────────────────────────────────────
+
+type DisplayMode = 'hex' | 'base64'
+
+function base64ToHex(b64: string): string {
+  try {
+    const binary = atob(b64)
+    return Array.from(binary)
+      .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0'))
+      .join(' ')
+  } catch {
+    return b64
+  }
+}
+
+function displayBinary(b64: string, mode: DisplayMode): string {
+  return mode === 'hex' ? base64ToHex(b64) : b64
+}
+
+function BinaryBadge() {
+  return (
+    <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500 font-mono shrink-0">
+      binary
+    </Badge>
+  )
+}
+
+function BinaryModeSelect({ value, onChange }: { value: DisplayMode; onChange: (v: DisplayMode) => void }) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as DisplayMode)}>
+      <SelectTrigger className="h-7 text-xs w-24">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="hex">Hex</SelectItem>
+        <SelectItem value="base64">Base64</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
 // ─── Value type aliases ───────────────────────────────────────────────────────
 
 type HashValue   = Record<string, string>
@@ -125,11 +166,14 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
   const { toast } = useToast()
   const qc = useQueryClient()
   const theme = useThemeStore((s) => s.theme)
+
+  const isBinary = detail.encoding === 'base64'
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('hex')
   const [editValue, setEditValue] = useState(() => prettyValue(detail.value))
 
   useEffect(() => { setEditValue(prettyValue(detail.value)) }, [detail.value])
 
-  const isJson = (() => {
+  const isJson = !isBinary && (() => {
     try { JSON.parse(typeof detail.value === 'string' ? detail.value : JSON.stringify(detail.value)); return true } catch { return false }
   })()
 
@@ -152,7 +196,26 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
 
   return (
     <div className="flex flex-col gap-3 h-full p-4">
-      {isJson ? (
+      {isBinary && (
+        <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/30 shrink-0">
+          <BinaryBadge />
+          <span className="text-xs text-amber-600 dark:text-amber-400 flex-1">
+            Binary data — read-only. Cannot be edited in this view.
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">View as:</span>
+            <BinaryModeSelect value={displayMode} onChange={setDisplayMode} />
+          </div>
+        </div>
+      )}
+      {isBinary ? (
+        <Textarea
+          value={displayBinary(detail.value as string, displayMode)}
+          readOnly
+          className="flex-1 min-h-[280px] font-mono text-xs resize-none bg-muted/30"
+          spellCheck={false}
+        />
+      ) : isJson ? (
         <div className="flex-1 min-h-[280px] rounded-md overflow-hidden border border-input text-sm">
           <CodeMirror
             value={editValue}
@@ -173,12 +236,14 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
           spellCheck={false}
         />
       )}
-      <div className="flex justify-end">
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          <Save className="w-4 h-4 mr-2" />
-          Save
-        </Button>
-      </div>
+      {!isBinary && (
+        <div className="flex justify-end">
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Save className="w-4 h-4 mr-2" />
+            Save
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -195,6 +260,7 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
   const [newFieldVal, setNewFieldVal]     = useState('')
 
   const entries = Object.entries((detail.value as HashValue) ?? {})
+  const fieldEncodings = detail.fieldEncodings ?? {}
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['key', connectionId, keyName] })
@@ -262,7 +328,14 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
               <TableRow key={field}>
                 <TableCell className="font-mono text-sm">{field}</TableCell>
                 <TableCell>
-                  {editingField === field ? (
+                  {fieldEncodings[field] === 'base64' ? (
+                    <span className="flex items-center gap-2">
+                      <BinaryBadge />
+                      <span className="font-mono text-xs text-muted-foreground break-all">
+                        {base64ToHex(val).slice(0, 80)}{val.length > 60 ? '…' : ''}
+                      </span>
+                    </span>
+                  ) : editingField === field ? (
                     <div className="flex gap-2">
                       <Input
                         value={editFieldVal}
@@ -303,14 +376,16 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex gap-1 justify-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 px-2"
-                      onClick={() => { setEditingField(field); setEditFieldVal(val) }}
-                    >
-                      Edit
-                    </Button>
+                    {fieldEncodings[field] !== 'base64' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        onClick={() => { setEditingField(field); setEditFieldVal(val) }}
+                      >
+                        Edit
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -360,6 +435,7 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
   const qc = useQueryClient()
   const [newItem, setNewItem] = useState('')
   const items: ListValue = (detail.value as ListValue) ?? []
+  const elementEncodings = detail.elementEncodings ?? []
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['key', connectionId, keyName] })
@@ -401,7 +477,16 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
         {items.map((item, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-2 group">
             <span className="text-muted-foreground text-xs font-mono w-8 text-right shrink-0">{i}</span>
-            <span className="flex-1 font-mono text-sm break-all">{item}</span>
+            {elementEncodings[i] === 'base64' ? (
+              <span className="flex items-center gap-2 flex-1 min-w-0">
+                <BinaryBadge />
+                <span className="font-mono text-xs text-muted-foreground break-all">
+                  {base64ToHex(item).slice(0, 80)}{item.length > 60 ? '…' : ''}
+                </span>
+              </span>
+            ) : (
+              <span className="flex-1 font-mono text-sm break-all">{item}</span>
+            )}
             <Button
               size="icon"
               variant="ghost"
@@ -458,6 +543,7 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
   const qc = useQueryClient()
   const [newMember, setNewMember] = useState('')
   const members: SetValue = (detail.value as SetValue) ?? []
+  const elementEncodings = detail.elementEncodings ?? []
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['key', connectionId, keyName] })
@@ -496,9 +582,18 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
             Set is empty
           </div>
         )}
-        {members.map((member) => (
+        {members.map((member, i) => (
           <div key={member} className="flex items-center gap-3 px-4 py-2 group">
-            <span className="flex-1 font-mono text-sm break-all">{member}</span>
+            {elementEncodings[i] === 'base64' ? (
+              <span className="flex items-center gap-2 flex-1 min-w-0">
+                <BinaryBadge />
+                <span className="font-mono text-xs text-muted-foreground break-all">
+                  {base64ToHex(member).slice(0, 80)}{member.length > 60 ? '…' : ''}
+                </span>
+              </span>
+            ) : (
+              <span className="flex-1 font-mono text-sm break-all">{member}</span>
+            )}
             <Button
               size="icon"
               variant="ghost"
@@ -544,6 +639,7 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
 
   const entries: ZSetValue = (detail.value as ZSetValue) ?? []
   const sorted = [...entries].sort((a, b) => a.score - b.score)
+  const memberEncodings = detail.memberEncodings ?? []
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['key', connectionId, keyName] })
@@ -605,7 +701,9 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                 </TableCell>
               </TableRow>
             )}
-            {sorted.map(({ member, score }) => (
+            {sorted.map(({ member, score }, i) => {
+              const isBinaryMember = memberEncodings[i] === 'base64'
+              return (
               <TableRow key={member}>
                 <TableCell>
                   {editingMember === member ? (
@@ -635,7 +733,18 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                     <span className="font-mono text-sm">{score}</span>
                   )}
                 </TableCell>
-                <TableCell className="font-mono text-sm break-all">{member}</TableCell>
+                <TableCell>
+                  {isBinaryMember ? (
+                    <span className="flex items-center gap-2">
+                      <BinaryBadge />
+                      <span className="font-mono text-xs text-muted-foreground break-all">
+                        {base64ToHex(member).slice(0, 80)}{member.length > 60 ? '…' : ''}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="font-mono text-sm break-all">{member}</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex gap-1 justify-end">
                     <Button
@@ -658,7 +767,8 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              )
+            })}
           </TableBody>
         </Table>
       </div>

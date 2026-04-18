@@ -12,6 +12,15 @@ import { Redis } from 'ioredis';
 
 const router = Router({ mergeParams: true });
 
+/** Round-trip UTF-8 check: valid UTF-8 bytes survive re-encoding unchanged. */
+function encodeBuffer(buf: Buffer): { value: string; encoding: 'utf8' | 'base64' } {
+  const str = buf.toString('utf8');
+  if (Buffer.from(str, 'utf8').equals(buf)) {
+    return { value: str, encoding: 'utf8' };
+  }
+  return { value: buf.toString('base64'), encoding: 'base64' };
+}
+
 const keysLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
@@ -90,25 +99,69 @@ router.get(
         client.memory('USAGE', key).catch(() => null),
       ]);
       let value: unknown;
+      let encoding: 'utf8' | 'base64' | undefined;
+      let fieldEncodings: Record<string, 'utf8' | 'base64'> | undefined;
+      let elementEncodings: Array<'utf8' | 'base64'> | undefined;
+      let memberEncodings: Array<'utf8' | 'base64'> | undefined;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clientAny = client as any;
 
       switch (keyType) {
-        case 'string':
-          value = await client.get(key);
+        case 'string': {
+          const buf: Buffer | null = await clientAny.getBuffer(key);
+          if (buf !== null) {
+            const encoded = encodeBuffer(buf);
+            value = encoded.value;
+            encoding = encoded.encoding;
+          } else {
+            value = null;
+          }
           break;
-        case 'hash':
-          value = await client.hgetall(key);
+        }
+        case 'hash': {
+          const fields = await client.hkeys(key);
+          fieldEncodings = {};
+          const hashValue: Record<string, string> = {};
+          await Promise.all(fields.map(async (field) => {
+            const buf: Buffer | null = await clientAny.hgetBuffer(key, field);
+            if (buf !== null) {
+              const { value: v, encoding: enc } = encodeBuffer(buf);
+              hashValue[field] = v;
+              fieldEncodings![field] = enc;
+            }
+          }));
+          value = hashValue;
           break;
-        case 'list':
-          value = await client.lrange(key, 0, -1);
+        }
+        case 'list': {
+          const bufs: Buffer[] = await clientAny.lrangeBuffer(key, 0, -1);
+          elementEncodings = [];
+          value = bufs.map((buf) => {
+            const { value: v, encoding: enc } = encodeBuffer(buf);
+            elementEncodings!.push(enc);
+            return v;
+          });
           break;
-        case 'set':
-          value = await client.smembers(key);
+        }
+        case 'set': {
+          const bufs: Buffer[] = await clientAny.smembersBuffer(key);
+          elementEncodings = [];
+          value = bufs.map((buf) => {
+            const { value: v, encoding: enc } = encodeBuffer(buf);
+            elementEncodings!.push(enc);
+            return v;
+          });
           break;
+        }
         case 'zset': {
-          const raw = await client.zrange(key, 0, -1, 'WITHSCORES');
+          const bufs: Buffer[] = await clientAny.zrangeBuffer(key, 0, -1, 'WITHSCORES');
+          memberEncodings = [];
           const entries: Array<{ member: string; score: number }> = [];
-          for (let i = 0; i < raw.length; i += 2) {
-            entries.push({ member: raw[i], score: parseFloat(raw[i + 1]) });
+          for (let i = 0; i < bufs.length; i += 2) {
+            const { value: member, encoding: enc } = encodeBuffer(bufs[i]);
+            memberEncodings.push(enc);
+            entries.push({ member, score: parseFloat(bufs[i + 1].toString()) });
           }
           value = entries;
           break;
@@ -120,7 +173,7 @@ router.get(
           value = null;
       }
 
-      res.json({ key, type: keyType, value, ttl, keySize });
+      res.json({ key, type: keyType, value, ttl, keySize, encoding, fieldEncodings, elementEncodings, memberEncodings });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
