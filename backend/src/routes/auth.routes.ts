@@ -119,17 +119,20 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
 
     const user = await prisma.user.findFirst({ where: { email: data.email, isActive: true } });
     if (!user) {
+      logger.warn(`Failed login attempt for unknown email (ip=${req.ip})`);
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
     if (!user.password) {
+      logger.warn(`Password login attempt on SSO account userId=${user.id} (ip=${req.ip})`);
       res.status(401).json({ error: 'This account uses SSO login' });
       return;
     }
 
     const isValid = await bcrypt.compare(data.password, user.password);
     if (!isValid) {
+      logger.warn(`Failed login attempt for userId=${user.id} (ip=${req.ip})`);
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
@@ -164,7 +167,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response): Promise<
   }
 });
 
-router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
+router.post('/refresh', authLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const token = req.cookies?.refreshToken;
     if (!token) {
@@ -183,7 +186,17 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    await prisma.refreshToken.update({ where: { id: storedToken.id }, data: { isRevoked: true } });
+    // Atomically mark the token as revoked. If another concurrent /refresh call
+    // won the race, the update affects zero rows and we refuse this request.
+    // This enforces single-use semantics for refresh tokens.
+    const revokeResult = await prisma.refreshToken.updateMany({
+      where: { id: storedToken.id, isRevoked: false },
+      data: { isRevoked: true },
+    });
+    if (revokeResult.count !== 1) {
+      res.status(401).json({ error: 'Invalid or expired refresh token' });
+      return;
+    }
 
     const user = await prisma.user.findFirst({ where: { id: payload.userId, isActive: true } });
     if (!user) {

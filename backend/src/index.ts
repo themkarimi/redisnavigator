@@ -3,8 +3,9 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
-import { env } from './config/env';
+import { env, validateProductionSecrets } from './config/env';
 import { logger } from './config/logger';
 import { prisma } from './config/prisma';
 import authRoutes from './routes/auth.routes';
@@ -30,15 +31,53 @@ const io = new Server(httpServer, {
 });
 
 // Middleware
-app.use(helmet({
-  contentSecurityPolicy: false,
-}));
+app.use(
+  helmet({
+    // Baseline CSP: lock down the document to same-origin resources, permit
+    // the SPA's websocket back to the same origin, and forbid inline scripts.
+    // Vite production builds emit hashed assets, which are compatible with
+    // `'self'`-only script-src. Operators behind a CDN can override via
+    // custom helmet config in a reverse proxy if needed.
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+  })
+);
 app.use(cors({
   origin: env.FRONTEND_URL,
   credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
+// Global body size cap. Keep this small to limit memory amplification on
+// unauthenticated endpoints; routes that legitimately accept larger payloads
+// (e.g. Redis value writes) can override this with a per-route parser.
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+
+// Coarse global rate limit. Protects every endpoint (including ones without a
+// route-specific limiter) against brute force and naive DoS. Auth routes have
+// their own stricter limiter on top of this.
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later' },
+  })
+);
 
 // Health check
 app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -65,6 +104,9 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 async function main() {
   try {
+    // Refuse to start in production if any secret is still the dev fallback.
+    validateProductionSecrets();
+
     await prisma.$connect();
     logger.info('Connected to database');
 

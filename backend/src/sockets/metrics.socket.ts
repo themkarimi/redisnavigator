@@ -3,6 +3,8 @@ import { prisma } from '../config/prisma';
 import { getRedisClient } from '../services/redis.service';
 import { verifyAccessToken } from '../utils/jwt';
 import { logger } from '../config/logger';
+import { userHasConnectionPermission } from '../utils/permissions';
+import { Permission } from '@prisma/client';
 
 const metricsIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
@@ -13,7 +15,8 @@ export function setupMetricsSocket(io: Server): void {
     try {
       const token = socket.handshake.auth.token;
       if (!token) throw new Error('No token');
-      verifyAccessToken(token);
+      const payload = verifyAccessToken(token);
+      socket.data.userId = payload.userId;
       next();
     } catch {
       next(new Error('Authentication error'));
@@ -23,6 +26,12 @@ export function setupMetricsSocket(io: Server): void {
   metricsNs.on('connection', (socket: Socket) => {
     socket.on('subscribe', async ({ connectionId }: { connectionId: string }) => {
       try {
+        const userId = socket.data.userId as string;
+        if (!(await userHasConnectionPermission(userId, connectionId, Permission.READ_KEY))) {
+          socket.emit('error', 'No access to this connection');
+          return;
+        }
+
         const connection = await prisma.redisConnection.findFirst({
           where: { id: connectionId, isActive: true },
         });
@@ -57,7 +66,8 @@ export function setupMetricsSocket(io: Server): void {
 
         metricsIntervals.set(intervalKey, interval);
       } catch (err) {
-        socket.emit('error', (err as Error).message);
+        logger.warn(`Metrics subscribe failed: ${(err as Error).message}`);
+        socket.emit('error', 'Subscribe failed');
       }
     });
 

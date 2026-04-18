@@ -19,6 +19,14 @@ export default function OidcCallbackPage() {
       try {
         const user = JSON.parse(decodeURIComponent(userParam))
         setAuth(user, accessToken)
+        // Remove the access token from window.location.hash so it is not
+        // preserved in browser history or exposed to extensions via the URL.
+        // The subsequent navigate() with replace:true also rewrites history.
+        try {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        } catch {
+          // ignore: non-critical, navigate(replace) below still cleans up
+        }
         queryClient.invalidateQueries({ queryKey: ['connections'] })
         navigate('/connections', { replace: true })
       } catch (err) {

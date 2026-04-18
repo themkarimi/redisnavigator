@@ -12,6 +12,15 @@ import { Redis } from 'ioredis';
 
 const router = Router({ mergeParams: true });
 
+/**
+ * Route-local body parser override. The global parser in `index.ts` is kept
+ * small (1mb) to limit memory amplification on unauthenticated endpoints;
+ * Redis values can legitimately be larger, so key-manipulation routes accept
+ * up to 10mb here. This runs only on `/api/connections/:id/keys`.
+ */
+import express from 'express';
+router.use(express.json({ limit: '10mb' }));
+
 /** Round-trip UTF-8 check: valid UTF-8 bytes survive re-encoding unchanged. */
 function encodeBuffer(buf: Buffer): { value: string; encoding: 'utf8' | 'base64' } {
   const str = buf.toString('utf8');

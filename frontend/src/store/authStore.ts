@@ -26,7 +26,12 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'redis-navigator-auth',
-      partialize: (state) => ({ user: state.user, accessToken: state.accessToken, isAuthenticated: state.isAuthenticated }),
+      // Intentionally do NOT persist `accessToken` to localStorage. Keeping it
+      // in memory only limits the blast radius of any XSS: an attacker can
+      // read it while the tab is open, but not exfiltrate a long-lived token
+      // from storage. The httpOnly `refreshToken` cookie is used to restore
+      // the session via /auth/refresh on reload (see PrivateRoute).
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )
 );

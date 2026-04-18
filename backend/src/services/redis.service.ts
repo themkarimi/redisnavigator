@@ -1,6 +1,8 @@
 import Redis, { RedisOptions, Cluster } from 'ioredis';
 import { decrypt } from '../utils/encryption';
 import { logger } from '../config/logger';
+import { assertSafeRedisHost } from '../utils/network';
+import { env } from '../config/env';
 
 interface ConnectionConfig {
   id: string;
@@ -36,7 +38,10 @@ export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOption
   }
 
   if (config.useTLS) {
-    options.tls = {};
+    // Verify the server certificate by default. Operators can opt out via
+    // REDIS_TLS_INSECURE for self-signed development setups, but that path
+    // must never be on in production without an explicit override.
+    options.tls = { rejectUnauthorized: !env.REDIS_TLS_INSECURE };
   }
 
   return options;
@@ -53,6 +58,8 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
       connectionPool.delete(poolKey);
     }
   }
+
+  await assertSafeRedisHost(config.host);
 
   const options = buildRedisOptions(config, db);
   const client = new Redis(options);
@@ -72,6 +79,7 @@ export async function testConnection(config: Omit<ConnectionConfig, 'id'>): Prom
   const start = Date.now();
 
   try {
+    await assertSafeRedisHost(config.host);
     const options = buildRedisOptions(testConfig);
     client = new Redis({ ...options, lazyConnect: true });
     await client.connect();

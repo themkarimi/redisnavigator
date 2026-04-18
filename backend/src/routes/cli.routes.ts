@@ -9,11 +9,37 @@ import { ConnectionAccessRequest } from '../types';
 import { AuditAction, Permission } from '@prisma/client';
 
 import { env } from '../config/env';
+import { logger } from '../config/logger';
 
 const router = Router({ mergeParams: true });
 router.use(authMiddleware);
 
-const BLOCKED_COMMANDS = ['FLUSHALL', 'CONFIG', 'REPLICAOF', 'SLAVEOF', 'DEBUG', 'SHUTDOWN'];
+// Commands that are always refused regardless of role. These can destroy or
+// reconfigure the whole Redis server, bypass RBAC via Lua, load native
+// modules, or exfiltrate data to an attacker-controlled instance.
+const BLOCKED_COMMANDS = [
+  'FLUSHALL',
+  'CONFIG',
+  'REPLICAOF',
+  'SLAVEOF',
+  'DEBUG',
+  'SHUTDOWN',
+  // Lua / server-side functions (can call into CONFIG/keys bypassing RBAC).
+  'EVAL',
+  'EVALSHA',
+  'EVAL_RO',
+  'EVALSHA_RO',
+  'SCRIPT',
+  'FUNCTION',
+  'FCALL',
+  'FCALL_RO',
+  // ACL / module / cluster / migration commands can elevate privileges,
+  // load native code, or exfiltrate data to a remote host.
+  'ACL',
+  'MODULE',
+  'MIGRATE',
+  'CLUSTER',
+];
 
 function getEffectiveBlockedCommands(): Set<string> {
   return new Set([...BLOCKED_COMMANDS, ...env.DISABLED_COMMANDS]);
@@ -71,7 +97,11 @@ router.post(
         res.status(400).json({ error: 'Validation failed', details: err.issues });
         return;
       }
-      res.json({ result: null, error: (err as Error).message, command: req.body.command });
+      // Redis error messages can reveal server internals (IPs, auth hints,
+      // module versions). Surface a generic message to the client and keep
+      // the full detail in the server log for operators.
+      logger.warn(`CLI command failed: ${(err as Error).message}`);
+      res.status(500).json({ result: null, error: 'Command execution failed', command: req.body?.command });
     }
   }
 );
