@@ -19,6 +19,12 @@ export function setupPubSubSocket(io: Server): void {
       const token = socket.handshake.auth.token;
       if (!token) throw new Error('No token');
       const payload = verifyAccessToken(token);
+      // Confirm the user still exists and is active (see metrics socket).
+      const user = await prisma.user.findFirst({
+        where: { id: payload.userId, isActive: true },
+        select: { id: true },
+      });
+      if (!user) throw new Error('User not found');
       socket.data.userId = payload.userId;
       next();
     } catch {

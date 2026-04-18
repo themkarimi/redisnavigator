@@ -9,10 +9,11 @@ import { env } from '../config/env';
 const GCM_PREFIX = 'v2:';
 
 function getKey(): Buffer {
-  // Derive a deterministic 32-byte key from ENCRYPTION_KEY. Using SHA-256
-  // guarantees the key material is exactly 32 bytes even if the operator
-  // configures a longer or shorter passphrase; production startup validation
-  // additionally enforces a 32-byte key (see env.ts).
+  // Derive a deterministic 32-byte key from ENCRYPTION_KEY. SHA-256 accepts
+  // any input length so the app still starts in development even with a
+  // non-standard passphrase; production startup (`validateProductionSecrets`)
+  // additionally refuses to boot unless ENCRYPTION_KEY is exactly 32 bytes,
+  // ensuring operators configure a sufficiently strong key.
   return crypto.createHash('sha256').update(env.ENCRYPTION_KEY, 'utf8').digest();
 }
 

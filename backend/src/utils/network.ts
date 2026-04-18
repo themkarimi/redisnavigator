@@ -90,9 +90,19 @@ export async function assertSafeRedisHost(host: string): Promise<void> {
   // Resolve to A and AAAA records. Reject if *any* address is private — an
   // attacker could otherwise use DNS rebinding or a hostname that resolves
   // to a mix of public and private IPs.
+  // Resolve to A and AAAA records. Reject if *any* address is private — an
+  // attacker could otherwise use DNS rebinding or a hostname that resolves
+  // to a mix of public and private IPs. A short timeout bounds the cost of
+  // hostile DNS servers that deliberately delay responses.
+  const DNS_TIMEOUT_MS = 5000;
+  const lookupPromise = dns.lookup(trimmed, { all: true, verbatim: true });
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('DNS timeout')), DNS_TIMEOUT_MS).unref(),
+  );
+
   let resolvedAddresses: { address: string }[];
   try {
-    resolvedAddresses = await dns.lookup(trimmed, { all: true, verbatim: true });
+    resolvedAddresses = await Promise.race([lookupPromise, timeoutPromise]);
   } catch {
     throw new Error('Unable to resolve host');
   }

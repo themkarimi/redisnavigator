@@ -16,6 +16,14 @@ export function setupMetricsSocket(io: Server): void {
       const token = socket.handshake.auth.token;
       if (!token) throw new Error('No token');
       const payload = verifyAccessToken(token);
+      // Confirm the user still exists and is active. Without this, a
+      // previously-issued access token could keep a socket alive for a user
+      // that has since been deactivated.
+      const user = await prisma.user.findFirst({
+        where: { id: payload.userId, isActive: true },
+        select: { id: true },
+      });
+      if (!user) throw new Error('User not found');
       socket.data.userId = payload.userId;
       next();
     } catch {
