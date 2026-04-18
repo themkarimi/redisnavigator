@@ -1521,16 +1521,25 @@ export default function KeyBrowserPage() {
     )
   }, [connectionId, selectedKeys, selectedKey, bulkDeleteMutation, toast])
 
-  const handleBulkExport = useCallback(() => {
-    const data = keys.filter((k) => selectedKeys.has(k.key))
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const handleBulkExport = useCallback(async () => {
+    const selectedKeyList = keys.filter((k) => selectedKeys.has(k.key))
+    toast({ title: 'Exporting…', description: `Fetching data for ${selectedKeyList.length} keys.` })
+    const details = await Promise.all(
+      selectedKeyList.map((k) =>
+        api
+          .get<RedisKeyDetail>(`/connections/${connectionId}/keys/${encodeURIComponent(k.key)}`, { params: { db } })
+          .then(({ data }) => data)
+          .catch(() => ({ ...k, value: null }))
+      )
+    )
+    const blob = new Blob([JSON.stringify(details, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `redis-keys-${connectionId}-db${db}.json`
     a.click()
     URL.revokeObjectURL(url)
-    toast({ title: 'Exported', description: `${data.length} keys exported as JSON.` })
+    toast({ title: 'Exported', description: `${details.length} keys exported as JSON.` })
   }, [keys, selectedKeys, connectionId, db, toast])
 
   const handleBulkSetTtl = useCallback(async () => {
