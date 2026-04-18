@@ -5,6 +5,7 @@
 ## Features
 - Multi-connection support (Standalone, Sentinel, Cluster)
 - Key browser with all data type editors (String, Hash, List, Set, ZSet, Stream)
+- Bulk export and import keys as JSON
 - Embedded Redis CLI with command history
 - Real-time Pub/Sub monitor
 - Live metrics dashboard with charts
@@ -113,6 +114,7 @@ See [`backend/config.example.yaml`](backend/config.example.yaml) for a fully ann
 ## Documentation
 
 - [Authentication & Authorization (OIDC / Keycloak)](docs/authentication-authorization.md)
+- [Key Import / Export](docs/key-import-export.md)
 
 ## Helm Deployment
 

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown, ChevronRight, Folder, FolderOpen, List, Network, Download } from 'lucide-react'
+import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown, ChevronRight, Folder, FolderOpen, List, Network, Download, Upload } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -1339,6 +1339,208 @@ function KeyNamespaceTree({ keys, selectedKey, onSelectKey }: KeyNamespaceTreePr
   )
 }
 
+// ─── Import Keys Dialog ───────────────────────────────────────────────────────
+
+interface ImportKeysDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  connectionId: string
+  db: number
+  onImported: () => void
+}
+
+function ImportKeysDialog({ open, onOpenChange, connectionId, db, onImported }: ImportKeysDialogProps) {
+  const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [parsedKeys, setParsedKeys] = useState<RedisKeyDetail[]>([])
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [fileName, setFileName]     = useState<string | null>(null)
+  const [overwrite, setOverwrite]   = useState(false)
+  const [importTtl, setImportTtl]   = useState(true)
+  const [isImporting, setIsImporting] = useState(false)
+  const [progress, setProgress]     = useState({ done: 0, total: 0, failed: 0 })
+  const [done, setDone]             = useState(false)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileName(file.name)
+    setParseError(null)
+    setParsedKeys([])
+    setDone(false)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string)
+        if (!Array.isArray(json)) throw new Error('Expected a JSON array of keys.')
+        const valid = json.filter((item) => item && typeof item.key === 'string' && typeof item.type === 'string')
+        if (valid.length === 0) throw new Error('No valid keys found in file.')
+        setParsedKeys(valid)
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : 'Failed to parse JSON.')
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleImport = async () => {
+    if (parsedKeys.length === 0) return
+    setIsImporting(true)
+    setProgress({ done: 0, total: parsedKeys.length, failed: 0 })
+    let failed = 0
+    for (let i = 0; i < parsedKeys.length; i++) {
+      const k = parsedKeys[i]
+      const ttlValue = importTtl && k.ttl > 0 ? k.ttl : undefined
+      try {
+        await api.post(
+          `/connections/${connectionId}/keys`,
+          { key: k.key, type: k.type, value: k.value, ...(ttlValue !== undefined ? { ttl: ttlValue } : {}) },
+          { params: { db } }
+        )
+      } catch {
+        if (overwrite) {
+          try {
+            await api.put(
+              `/connections/${connectionId}/keys/${encodeURIComponent(k.key)}`,
+              { value: k.value, ...(ttlValue !== undefined ? { ttl: ttlValue } : {}) },
+              { params: { db } }
+            )
+          } catch {
+            failed++
+          }
+        } else {
+          failed++
+        }
+      }
+      setProgress({ done: i + 1, total: parsedKeys.length, failed })
+    }
+    setIsImporting(false)
+    setDone(true)
+    const succeeded = parsedKeys.length - failed
+    toast({
+      title: 'Import complete',
+      description: `${succeeded} key${succeeded !== 1 ? 's' : ''} imported${failed > 0 ? `, ${failed} failed` : ''}.`,
+      variant: failed > 0 && succeeded === 0 ? 'destructive' : 'default',
+    })
+    if (succeeded > 0) onImported()
+  }
+
+  const handleReset = () => {
+    setParsedKeys([])
+    setParseError(null)
+    setFileName(null)
+    setDone(false)
+    setProgress({ done: 0, total: 0, failed: 0 })
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleClose = () => {
+    if (isImporting) return
+    handleReset()
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Import Keys</DialogTitle>
+          <DialogDescription>
+            Upload a JSON file exported from Redis Navigator to import keys into DB {db}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="outline"
+              className="w-full justify-start font-normal truncate"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+            >
+              <Upload className="w-4 h-4 mr-2 shrink-0" />
+              <span className="truncate">{fileName ?? 'Choose JSON file…'}</span>
+            </Button>
+          </div>
+
+          {parseError && (
+            <p className="text-xs text-destructive">{parseError}</p>
+          )}
+
+          {parsedKeys.length > 0 && !done && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                {parsedKeys.length} key{parsedKeys.length !== 1 ? 's' : ''} found in file.
+              </p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <Checkbox
+                    checked={overwrite}
+                    onCheckedChange={(v) => setOverwrite(!!v)}
+                    disabled={isImporting}
+                  />
+                  <span className="text-sm">Overwrite existing keys</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <Checkbox
+                    checked={importTtl}
+                    onCheckedChange={(v) => setImportTtl(!!v)}
+                    disabled={isImporting}
+                  />
+                  <span className="text-sm">Preserve TTL</span>
+                </label>
+              </div>
+            </>
+          )}
+
+          {isImporting && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Importing…</span>
+                <span>{progress.done} / {progress.total}</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-1.5">
+                <div
+                  className="bg-primary h-1.5 rounded-full transition-all"
+                  style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {done && (
+            <p className="text-xs text-muted-foreground">
+              Done: {progress.done - progress.failed} succeeded, {progress.failed} failed.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={isImporting}>
+            {done ? 'Close' : 'Cancel'}
+          </Button>
+          {!done && (
+            <Button
+              onClick={handleImport}
+              disabled={parsedKeys.length === 0 || isImporting}
+            >
+              {isImporting ? 'Importing…' : `Import${parsedKeys.length > 0 ? ` ${parsedKeys.length}` : ''} Keys`}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function KeyBrowserPage() {
@@ -1362,6 +1564,7 @@ export default function KeyBrowserPage() {
   const [reloadTrigger, setReloadTrigger]   = useState(0)
   const [isDeletingByPattern, setIsDeletingByPattern] = useState(false)
   const [addKeyOpen, setAddKeyOpen]         = useState(false)
+  const [importOpen, setImportOpen]         = useState(false)
   const [treeView, setTreeView]             = useState(true)
 
   // Bulk selection
@@ -1646,6 +1849,15 @@ export default function KeyBrowserPage() {
               <Plus className="w-3.5 h-3.5" />
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 shrink-0"
+              onClick={() => setImportOpen(true)}
+              title="Import Keys"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </Button>
+            <Button
               variant={treeView ? 'secondary' : 'outline'}
               size="sm"
               className="h-8 px-2.5 shrink-0"
@@ -1828,6 +2040,15 @@ export default function KeyBrowserPage() {
         connectionId={connectionId}
         db={db}
         onCreated={handleKeyCreated}
+      />
+
+      {/* ── Import Keys Dialog ── */}
+      <ImportKeysDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        connectionId={connectionId}
+        db={db}
+        onImported={() => setReloadTrigger((n) => n + 1)}
       />
 
       {/* ── Bulk TTL Dialog ── */}
