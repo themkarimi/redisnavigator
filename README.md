@@ -2,6 +2,8 @@
 
 > A full-stack Redis management GUI — an open-source RedisInsight alternative
 
+![RedisNavigator](docs/image.png)
+
 ## Features
 - Multi-connection support (Standalone, Sentinel, Cluster)
 - Key browser with all data type editors (String, Hash, List, Set, ZSet, Stream)
