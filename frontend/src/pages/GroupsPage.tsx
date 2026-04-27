@@ -14,6 +14,8 @@ import {
   ChevronRight,
   UserMinus,
   ServerOff,
+  ChevronsUpDown,
+  Check,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useFeatures } from '@/hooks/useFeatures'
@@ -42,10 +44,24 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { cn } from '@/utils/cn'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -143,6 +159,7 @@ function CreateGroupDialog() {
 
 function AddMemberDialog({ groupId, existingUserIds }: { groupId: string; existingUserIds: string[] }) {
   const [open, setOpen] = useState(false)
+  const [comboOpen, setComboOpen] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
@@ -159,6 +176,7 @@ function AddMemberDialog({ groupId, existingUserIds }: { groupId: string; existi
   })
 
   const selectedUserId = watch('userId')
+  const selectedUser = availableUsers.find((u) => u.id === selectedUserId)
 
   const mutation = useMutation({
     mutationFn: (data: AddMemberFormValues) => api.post(`/groups/${groupId}/members`, data),
@@ -178,7 +196,7 @@ function AddMemberDialog({ groupId, existingUserIds }: { groupId: string; existi
   })
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { reset(); setApiError(null) } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { reset(); setApiError(null); setComboOpen(false) } }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />
@@ -194,17 +212,47 @@ function AddMemberDialog({ groupId, existingUserIds }: { groupId: string; existi
           {apiError && <Alert variant="destructive"><AlertDescription>{apiError}</AlertDescription></Alert>}
           <div className="space-y-1.5">
             <Label>User</Label>
-            <Select value={selectedUserId} onValueChange={(v) => setValue('userId', v)}>
-              <SelectTrigger><SelectValue placeholder="Select a user" /></SelectTrigger>
-              <SelectContent>
-                {availableUsers.length === 0
-                  ? <SelectItem value="_none" disabled>No users available</SelectItem>
-                  : availableUsers.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>
-                  ))
-                }
-              </SelectContent>
-            </Select>
+            <Popover open={comboOpen} onOpenChange={setComboOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboOpen}
+                  className="w-full justify-between font-normal"
+                  disabled={availableUsers.length === 0}
+                >
+                  {selectedUser
+                    ? `${selectedUser.name} (${selectedUser.email})`
+                    : availableUsers.length === 0
+                    ? 'No users available'
+                    : 'Select a user…'}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search users…" />
+                  <CommandList>
+                    <CommandEmpty>No users found.</CommandEmpty>
+                    <CommandGroup>
+                      {availableUsers.map((u) => (
+                        <CommandItem
+                          key={u.id}
+                          value={`${u.name} ${u.email}`}
+                          onSelect={() => {
+                            setValue('userId', u.id, { shouldValidate: true })
+                            setComboOpen(false)
+                          }}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', selectedUserId === u.id ? 'opacity-100' : 'opacity-0')} />
+                          {u.name} ({u.email})
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             {errors.userId && <p className="text-xs text-red-500">{errors.userId.message}</p>}
           </div>
           <DialogFooter>
@@ -223,6 +271,7 @@ function AddMemberDialog({ groupId, existingUserIds }: { groupId: string; existi
 
 function AssignConnectionDialog({ groupId, existingConnectionIds }: { groupId: string; existingConnectionIds: string[] }) {
   const [open, setOpen] = useState(false)
+  const [comboOpen, setComboOpen] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
@@ -236,6 +285,7 @@ function AssignConnectionDialog({ groupId, existingConnectionIds }: { groupId: s
 
   const selectedConnectionId = watch('connectionId')
   const selectedRole = watch('role')
+  const selectedConnection = availableConnections.find((c) => c.id === selectedConnectionId)
 
   const mutation = useMutation({
     mutationFn: (data: AssignConnectionFormValues) => api.post(`/groups/${groupId}/connections`, data),
@@ -255,7 +305,7 @@ function AssignConnectionDialog({ groupId, existingConnectionIds }: { groupId: s
   })
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { reset(); setApiError(null) } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { reset(); setApiError(null); setComboOpen(false) } }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />
@@ -271,17 +321,47 @@ function AssignConnectionDialog({ groupId, existingConnectionIds }: { groupId: s
           {apiError && <Alert variant="destructive"><AlertDescription>{apiError}</AlertDescription></Alert>}
           <div className="space-y-1.5">
             <Label>Connection</Label>
-            <Select value={selectedConnectionId} onValueChange={(v) => setValue('connectionId', v)}>
-              <SelectTrigger><SelectValue placeholder="Select a connection" /></SelectTrigger>
-              <SelectContent>
-                {availableConnections.length === 0
-                  ? <SelectItem value="_none" disabled>No connections available</SelectItem>
-                  : availableConnections.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))
-                }
-              </SelectContent>
-            </Select>
+            <Popover open={comboOpen} onOpenChange={setComboOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboOpen}
+                  className="w-full justify-between font-normal"
+                  disabled={availableConnections.length === 0}
+                >
+                  {selectedConnection
+                    ? selectedConnection.name
+                    : availableConnections.length === 0
+                    ? 'No connections available'
+                    : 'Select a connection…'}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search connections…" />
+                  <CommandList>
+                    <CommandEmpty>No connections found.</CommandEmpty>
+                    <CommandGroup>
+                      {availableConnections.map((c) => (
+                        <CommandItem
+                          key={c.id}
+                          value={c.name}
+                          onSelect={() => {
+                            setValue('connectionId', c.id, { shouldValidate: true })
+                            setComboOpen(false)
+                          }}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', selectedConnectionId === c.id ? 'opacity-100' : 'opacity-0')} />
+                          {c.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             {errors.connectionId && <p className="text-xs text-red-500">{errors.connectionId.message}</p>}
           </div>
           <div className="space-y-1.5">
