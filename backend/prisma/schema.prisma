@@ -125,15 +125,16 @@ model UserConnectionRole {
 }
 
 model AuditLog {
-  id           String          @id @default(cuid())
-  userId       String
-  connectionId String?
-  action       AuditAction
-  resourceKey  String?
-  details      Json?
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime        @default(now())
+  id             String          @id @default(cuid())
+  userId         String
+  connectionId   String?
+  connectionName String?
+  action         AuditAction
+  resourceKey    String?
+  details        Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime        @default(now())
 
   user         User            @relation(fields: [userId], references: [id])
   connection   RedisConnection? @relation(fields: [connectionId], references: [id])
