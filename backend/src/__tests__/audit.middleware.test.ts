@@ -11,7 +11,7 @@ jest.mock('../config/prisma', () => ({
       create: jest.fn(),
     },
     redisConnection: {
-      findFirst: jest.fn(),
+      findUnique: jest.fn(),
     },
   },
 }));
@@ -22,7 +22,7 @@ jest.mock('../config/logger', () => ({
 
 const mockPrisma = prismaModule.prisma as unknown as {
   auditLog: { create: jest.Mock };
-  redisConnection: { findFirst: jest.Mock };
+  redisConnection: { findUnique: jest.Mock };
 };
 
 const mockLogger = loggerModule.logger as unknown as {
@@ -49,14 +49,16 @@ function makeRes(statusCode = 200): Partial<Response> {
 }
 
 describe('auditLog middleware', () => {
-  // Flush all pending microtask ticks (needed for async/await chains inside the middleware)
+  // Flush pending microtasks. The middleware's createAuditRecord async function
+  // uses two awaits (findUnique + auditLog.create), so we need multiple ticks.
+  const MICROTASK_FLUSH_ITERATIONS = 5;
   const flushMicrotasks = async () => {
-    for (let i = 0; i < 5; i++) await Promise.resolve();
+    for (let i = 0; i < MICROTASK_FLUSH_ITERATIONS; i++) await Promise.resolve();
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
+    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
   });
 
   it('creates an audit log with a masked key from params', async () => {
@@ -154,7 +156,7 @@ describe('auditLog middleware', () => {
 
   it('logs userEmail and connectionName instead of connectionId in the audit logger output', async () => {
     mockPrisma.auditLog.create.mockResolvedValue({ id: 'audit-id-5' });
-    mockPrisma.redisConnection.findFirst.mockResolvedValue({ name: 'My Redis' });
+    mockPrisma.redisConnection.findUnique.mockResolvedValue({ name: 'My Redis' });
 
     const req = makeReq({ params: { key: 'mykey', id: 'conn-1' } });
     const res = makeRes();
@@ -184,7 +186,7 @@ describe('auditLog middleware', () => {
 
   it('stores the connection name in the audit record when connectionId is provided', async () => {
     mockPrisma.auditLog.create.mockResolvedValue({ id: 'audit-id-6' });
-    mockPrisma.redisConnection.findFirst.mockResolvedValue({ name: 'Production Redis' });
+    mockPrisma.redisConnection.findUnique.mockResolvedValue({ name: 'Production Redis' });
 
     const req = makeReq({ params: { id: 'conn-abc' } });
     const res = makeRes();
@@ -216,12 +218,12 @@ describe('auditLog middleware', () => {
 
     const callArg = mockPrisma.auditLog.create.mock.calls[0][0];
     expect(callArg.data.connectionName).toBeNull();
-    expect(mockPrisma.redisConnection.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.redisConnection.findUnique).not.toHaveBeenCalled();
   });
 
   it('stores null connectionName when the connection is not found', async () => {
     mockPrisma.auditLog.create.mockResolvedValue({ id: 'audit-id-8' });
-    mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
+    mockPrisma.redisConnection.findUnique.mockResolvedValue(null);
 
     const req = makeReq({ params: { id: 'deleted-conn' } });
     const res = makeRes();
@@ -239,7 +241,7 @@ describe('auditLog middleware', () => {
 
   it('includes cliCommand in logger output for CLI actions', async () => {
     mockPrisma.auditLog.create.mockResolvedValue({ id: 'audit-id-9' });
-    mockPrisma.redisConnection.findFirst.mockResolvedValue({ name: 'Dev Redis' });
+    mockPrisma.redisConnection.findUnique.mockResolvedValue({ name: 'Dev Redis' });
 
     const req = makeReq({
       params: { id: 'conn-cli' },

@@ -32,7 +32,7 @@ export function auditLog(
         const createAuditRecord = async () => {
           let connectionName: string | null = null;
           if (connectionId) {
-            const connection = await prisma.redisConnection.findFirst({
+            const connection = await prisma.redisConnection.findUnique({
               where: { id: connectionId },
               select: { name: true },
             });
