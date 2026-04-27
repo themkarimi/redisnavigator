@@ -27,26 +27,46 @@ export function auditLog(
           ? (safeBody as unknown as Prisma.InputJsonValue)
           : Prisma.JsonNull;
 
-        prisma.auditLog.create({
-          data: {
-            userId,
-            connectionId: connectionId || null,
-            action,
-            resourceKey: maskedKey,
-            details: safeDetails,
-            ipAddress: req.ip,
-            userAgent: req.headers['user-agent'],
-          },
-        }).then((record) => {
-          logger.info('audit', {
+        const cliCommand = (req.body as { command?: string })?.command ?? null;
+
+        const createAuditRecord = async () => {
+          let connectionName: string | null = null;
+          if (connectionId) {
+            const connection = await prisma.redisConnection.findFirst({
+              where: { id: connectionId },
+              select: { name: true },
+            });
+            connectionName = connection?.name ?? null;
+          }
+
+          const record = await prisma.auditLog.create({
+            data: {
+              userId,
+              connectionId: connectionId || null,
+              connectionName,
+              action,
+              resourceKey: maskedKey,
+              details: safeDetails,
+              ipAddress: req.ip,
+              userAgent: req.headers['user-agent'],
+            },
+          });
+
+          const logPayload: Record<string, unknown> = {
             auditId: record.id,
             action,
             userEmail: req.user?.email,
-            connectionId: connectionId || null,
+            connectionName: connectionName || null,
             resourceKey: maskedKey,
             ipAddress: req.ip,
-          });
-        }).catch(() => { /* ignore audit log errors */ });
+          };
+          if (cliCommand) {
+            logPayload.cliCommand = cliCommand;
+          }
+          logger.info('audit', logPayload);
+        };
+
+        createAuditRecord().catch(() => { /* ignore audit log errors */ });
       }
       return originalJson(body);
     };
