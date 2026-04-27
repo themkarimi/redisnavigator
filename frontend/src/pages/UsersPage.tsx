@@ -512,7 +512,7 @@ export default function UsersPage() {
                 <tr key={user.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 text-xs font-semibold">
+                      <div className="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700 text-xs font-semibold">
                         {user.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-medium">{user.name}</span>
