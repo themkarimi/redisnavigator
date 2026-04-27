@@ -97,6 +97,7 @@ export async function closeConnection(connectionId: string): Promise<void> {
   for (const key of keysToDelete) {
     const client = connectionPool.get(key);
     if (client) {
+      client.removeAllListeners('error');
       await client.quit().catch(() => client.disconnect());
       connectionPool.delete(key);
     }
