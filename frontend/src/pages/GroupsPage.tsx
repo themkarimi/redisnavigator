@@ -19,8 +19,8 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useFeatures } from '@/hooks/useFeatures'
+import { useConnections } from '@/hooks/useConnections'
 import { api } from '@/services/api'
-import { useConnectionStore } from '@/store/connectionStore'
 import type { Group, UserWithRoles, UserRole } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -275,7 +275,7 @@ function AssignConnectionDialog({ groupId, existingConnectionIds }: { groupId: s
   const [apiError, setApiError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
-  const connections = useConnectionStore((s) => s.connections)
+  const { data: connections = [] } = useConnections()
   const availableConnections = connections.filter((c) => !existingConnectionIds.includes(c.id))
 
   const { handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<AssignConnectionFormValues>({
