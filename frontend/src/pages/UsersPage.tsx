@@ -385,6 +385,7 @@ function AssignRoleDialog({
 
 function DeleteUserButton({ userId, userName }: { userId: string; userName: string }) {
   const [open, setOpen] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
@@ -393,10 +394,18 @@ function DeleteUserButton({ userId, userName }: { userId: string; userName: stri
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setOpen(false)
     },
+    onError: (err) => {
+      if (isAxiosError(err)) {
+        const msg = err.response?.data?.message ?? err.response?.data?.error ?? 'Failed to delete user.'
+        setApiError(Array.isArray(msg) ? msg.join(', ') : String(msg))
+      } else {
+        setApiError('An unexpected error occurred.')
+      }
+    },
   })
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) { setApiError(null) } }}>
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -414,13 +423,21 @@ function DeleteUserButton({ userId, userName }: { userId: string; userName: stri
             undone.
           </DialogDescription>
         </DialogHeader>
+        {apiError && (
+          <Alert variant="destructive">
+            <AlertDescription>{apiError}</AlertDescription>
+          </Alert>
+        )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => { setOpen(false); setApiError(null) }}>
             Cancel
           </Button>
           <Button
             variant="destructive"
-            onClick={() => deleteMutation.mutate()}
+            onClick={() => {
+              setApiError(null)
+              deleteMutation.mutate()
+            }}
             disabled={deleteMutation.isPending}
           >
             {deleteMutation.isPending ? (

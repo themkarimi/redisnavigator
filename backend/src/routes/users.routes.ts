@@ -30,6 +30,7 @@ const updateRoleSchema = z.object({
 router.get('/', requireRole(UserRole.ADMIN, UserRole.SUPERADMIN), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const users = await prisma.user.findMany({
+      where: { isActive: true },
       select: {
         id: true, email: true, name: true, isActive: true, createdAt: true,
         connectionRoles: {
@@ -141,11 +142,48 @@ router.delete(
   auditLog(AuditAction.DELETE_USER),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      if (req.params.id as string === req.user!.userId) {
+      const userId = req.params.id as string;
+
+      if (userId === req.user!.userId) {
         res.status(400).json({ error: 'Cannot delete your own account' });
         return;
       }
-      await prisma.user.update({ where: { id: req.params.id as string }, data: { isActive: false } });
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          password: true,
+          isActive: true,
+          _count: {
+            select: {
+              ownedConnections: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      if (user._count.ownedConnections > 0) {
+        res.status(409).json({
+          error: 'Cannot delete a user who owns connections. Transfer or remove those connections first.',
+        });
+        return;
+      }
+
+      if (user.password) {
+        await prisma.$transaction([
+          prisma.auditLog.deleteMany({ where: { userId } }),
+          prisma.user.delete({ where: { id: userId } }),
+        ]);
+      } else {
+        await prisma.user.update({ where: { id: userId }, data: { isActive: false } });
+      }
+
       res.json({ message: 'User deleted' });
     } catch {
       res.status(500).json({ error: 'Internal server error' });
