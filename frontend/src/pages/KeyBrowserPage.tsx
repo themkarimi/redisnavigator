@@ -44,6 +44,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { buildKeyTree, type KeyTreeNode, type NamespaceNode } from '@/utils/keyTree'
+import { applyMasking, hasMaskedContent } from '@/utils/masking'
 
 // ─── Type badge ──────────────────────────────────────────────────────────────
 
@@ -166,16 +167,23 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
   const { toast } = useToast()
   const qc = useQueryClient()
   const theme = useThemeStore((s) => s.theme)
+  const maskingPatterns = useSettingsStore((s) => s.maskingPatterns)
 
   const isBinary = detail.encoding === 'base64'
   const [displayMode, setDisplayMode] = useState<DisplayMode>('hex')
   const [editValue, setEditValue] = useState(() => prettyValue(detail.value))
+  const [revealed, setRevealed] = useState(false)
 
   useEffect(() => { setEditValue(prettyValue(detail.value)) }, [detail.value])
+  // Reset reveal state when the key changes
+  useEffect(() => { setRevealed(false) }, [keyName])
 
   const isJson = !isBinary && (() => {
     try { JSON.parse(typeof detail.value === 'string' ? detail.value : JSON.stringify(detail.value)); return true } catch { return false }
   })()
+
+  const isMasked = !isBinary && hasMaskedContent(editValue, maskingPatterns)
+  const displayValue = isMasked && !revealed ? applyMasking(editValue, maskingPatterns) : editValue
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -208,11 +216,33 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
           </div>
         </div>
       )}
+      {isMasked && (
+        <div className="flex items-center gap-2 p-2 rounded-md bg-violet-500/10 border border-violet-500/30 shrink-0">
+          <span className="text-xs text-violet-600 dark:text-violet-400 flex-1">
+            Value contains sensitive data and is masked.
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs shrink-0"
+            onClick={() => setRevealed((r) => !r)}
+          >
+            {revealed ? 'Hide' : 'Reveal & Edit'}
+          </Button>
+        </div>
+      )}
       {isBinary ? (
         <Textarea
           value={displayBinary(detail.value as string, displayMode)}
           readOnly
           className="flex-1 min-h-[280px] font-mono text-xs resize-none bg-muted/30"
+          spellCheck={false}
+        />
+      ) : isMasked && !revealed ? (
+        <Textarea
+          value={displayValue}
+          readOnly
+          className="flex-1 min-h-[280px] font-mono text-sm resize-none bg-muted/30 text-muted-foreground"
           spellCheck={false}
         />
       ) : isJson ? (
@@ -236,7 +266,7 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
           spellCheck={false}
         />
       )}
-      {!isBinary && (
+      {!isBinary && !(isMasked && !revealed) && (
         <div className="flex justify-end">
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
             <Save className="w-4 h-4 mr-2" />
@@ -253,6 +283,7 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
 function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
+  const maskingPatterns = useSettingsStore((s) => s.maskingPatterns)
 
   const [editingField, setEditingField]   = useState<string | null>(null)
   const [editFieldVal, setEditFieldVal]   = useState('')
@@ -371,7 +402,7 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                       </Button>
                     </div>
                   ) : (
-                    <span className="font-mono text-sm break-all">{val}</span>
+                    <span className="font-mono text-sm break-all">{applyMasking(val, maskingPatterns)}</span>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
@@ -433,6 +464,7 @@ function HashEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
 function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
+  const maskingPatterns = useSettingsStore((s) => s.maskingPatterns)
   const [newItem, setNewItem] = useState('')
   const items: ListValue = (detail.value as ListValue) ?? []
   const elementEncodings = detail.elementEncodings ?? []
@@ -485,7 +517,7 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                 </span>
               </span>
             ) : (
-              <span className="flex-1 font-mono text-sm break-all">{item}</span>
+              <span className="flex-1 font-mono text-sm break-all">{applyMasking(item, maskingPatterns)}</span>
             )}
             <Button
               size="icon"
@@ -541,6 +573,7 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
 function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
+  const maskingPatterns = useSettingsStore((s) => s.maskingPatterns)
   const [newMember, setNewMember] = useState('')
   const members: SetValue = (detail.value as SetValue) ?? []
   const elementEncodings = detail.elementEncodings ?? []
@@ -592,7 +625,7 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
                 </span>
               </span>
             ) : (
-              <span className="flex-1 font-mono text-sm break-all">{member}</span>
+              <span className="flex-1 font-mono text-sm break-all">{applyMasking(member, maskingPatterns)}</span>
             )}
             <Button
               size="icon"
@@ -631,6 +664,7 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
 function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps) {
   const { toast } = useToast()
   const qc = useQueryClient()
+  const maskingPatterns = useSettingsStore((s) => s.maskingPatterns)
 
   const [editingMember, setEditingMember] = useState<string | null>(null)
   const [editScore, setEditScore]         = useState('')
@@ -742,7 +776,7 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                       </span>
                     </span>
                   ) : (
-                    <span className="font-mono text-sm break-all">{member}</span>
+                    <span className="font-mono text-sm break-all">{applyMasking(member, maskingPatterns)}</span>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
@@ -804,6 +838,7 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
 // ─── Stream Viewer (read-only) ────────────────────────────────────────────────
 
 function StreamViewer({ detail }: { detail: RedisKeyDetail }) {
+  const maskingPatterns = useSettingsStore((s) => s.maskingPatterns)
   const entries: StreamValue = (detail.value as StreamValue) ?? []
   const allFields = Array.from(new Set(entries.flatMap((e) => Object.keys(e.fields ?? {}))))
 
@@ -840,7 +875,7 @@ function StreamViewer({ detail }: { detail: RedisKeyDetail }) {
                   <TableCell className="font-mono text-xs text-muted-foreground">{entry.id}</TableCell>
                   {allFields.map((f) => (
                     <TableCell key={f} className="font-mono text-sm">
-                      {entry.fields?.[f] ?? ''}
+                      {applyMasking(entry.fields?.[f] ?? '', maskingPatterns)}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -856,7 +891,7 @@ function StreamViewer({ detail }: { detail: RedisKeyDetail }) {
               {Object.entries(entry.fields ?? {}).map(([k, v]) => (
                 <React.Fragment key={k}>
                   <span className="text-muted-foreground truncate">{k}</span>
-                  <span className="break-all">{v}</span>
+                  <span className="break-all">{applyMasking(v, maskingPatterns)}</span>
                 </React.Fragment>
               ))}
             </div>
