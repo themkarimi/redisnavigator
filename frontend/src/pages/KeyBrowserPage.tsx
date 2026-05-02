@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, RefreshCw, Trash2, Plus, Save, Key, ChevronDown, ChevronRight, Folder, FolderOpen, List, Network, Download, Upload } from 'lucide-react'
@@ -182,8 +182,14 @@ function StringEditor({ connectionId, keyName, db, detail, onRefresh }: EditorPr
     try { JSON.parse(typeof detail.value === 'string' ? detail.value : JSON.stringify(detail.value)); return true } catch { return false }
   })()
 
-  const isMasked = !isBinary && hasMaskedContent(editValue, maskingPatterns)
-  const displayValue = isMasked && !revealed ? applyMasking(editValue, maskingPatterns) : editValue
+  const isMasked = useMemo(
+    () => !isBinary && hasMaskedContent(editValue, maskingPatterns),
+    [isBinary, editValue, maskingPatterns],
+  )
+  const displayValue = useMemo(
+    () => (isMasked && !revealed ? applyMasking(editValue, maskingPatterns) : editValue),
+    [isMasked, revealed, editValue, maskingPatterns],
+  )
 
   const saveMutation = useMutation({
     mutationFn: async () => {
