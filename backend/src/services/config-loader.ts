@@ -1,6 +1,6 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
-import { UserRole } from '@prisma/client';
+import { UserRole, Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { logger } from '../config/logger';
 import { encrypt } from '../utils/encryption';
@@ -146,10 +146,10 @@ export async function applyConfig(filePath: string): Promise<void> {
         useTLS: conn.useTLS ?? false,
         mode: conn.mode ?? 'STANDALONE',
         sentinelMaster: conn.sentinelMaster ?? null,
-        sentinelNodes: conn.sentinelNodes ?? null,
+        sentinelNodes: conn.sentinelNodes ?? Prisma.JsonNull,
         tags: conn.tags ?? [],
-        isActive: true,
-      } as const;
+        isActive: true as boolean,
+      };
 
       const existing = await prisma.redisConnection.findFirst({
         where: { name: conn.name, ownerId },

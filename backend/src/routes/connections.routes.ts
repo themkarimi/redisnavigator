@@ -8,7 +8,7 @@ import { auditLog } from '../middleware/audit.middleware';
 import { encrypt } from '../utils/encryption';
 import { testConnection, getRedisClient, closeConnection } from '../services/redis.service';
 import { AuthenticatedRequest, ConnectionAccessRequest } from '../types';
-import { AuditAction, Permission, UserRole } from '@prisma/client';
+import { AuditAction, Permission, UserRole, Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -101,7 +101,7 @@ router.post(
           useTLS: data.useTLS,
           mode: data.mode,
           sentinelMaster: data.sentinelMaster,
-          sentinelNodes: data.sentinelNodes ?? null,
+          sentinelNodes: data.sentinelNodes ?? Prisma.JsonNull,
           tags: data.tags,
           ownerId: req.user!.userId,
         },

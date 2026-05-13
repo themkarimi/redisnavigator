@@ -16,7 +16,9 @@ interface ConnectionConfig {
   useTLS: boolean;
   mode: string;
   sentinelMaster?: string | null;
-  sentinelNodes?: SentinelNode[] | null;
+  // Widened to unknown so Prisma's JsonValue passes without casting at every call site.
+  // buildRedisOptions parses the value safely at runtime.
+  sentinelNodes?: unknown;
 }
 
 const connectionPool = new Map<string, Redis | Cluster>();
@@ -44,8 +46,12 @@ export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOption
   }
 
   if (config.mode === 'SENTINEL') {
-    const sentinels: SentinelAddress[] = (config.sentinelNodes ?? []).map(
-      (n) => ({ host: n.host, port: n.port })
+    const rawNodes = config.sentinelNodes;
+    const sentinels: SentinelAddress[] = (Array.isArray(rawNodes) ? rawNodes : []).map(
+      (n: unknown) => {
+        const node = n as SentinelNode;
+        return { host: node.host, port: node.port };
+      }
     );
     return {
       ...base,
@@ -81,7 +87,7 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
   return client;
 }
 
-export async function testConnection(config: Omit<ConnectionConfig, 'id'> & { sentinelNodes?: SentinelNode[] | null }): Promise<{ success: boolean; latency?: number; error?: string }> {
+export async function testConnection(config: Omit<ConnectionConfig, 'id'>): Promise<{ success: boolean; latency?: number; error?: string }> {
   const testConfig: ConnectionConfig = { ...config, id: `test_${Date.now()}` };
   let client: Redis | null = null;
   const start = Date.now();
