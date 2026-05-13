@@ -1,6 +1,11 @@
-import Redis, { RedisOptions, Cluster } from 'ioredis';
+import Redis, { RedisOptions, Cluster, SentinelAddress } from 'ioredis';
 import { decrypt } from '../utils/encryption';
 import { logger } from '../config/logger';
+
+interface SentinelNode {
+  host: string;
+  port: number;
+}
 
 interface ConnectionConfig {
   id: string;
@@ -11,14 +16,13 @@ interface ConnectionConfig {
   useTLS: boolean;
   mode: string;
   sentinelMaster?: string | null;
+  sentinelNodes?: SentinelNode[] | null;
 }
 
 const connectionPool = new Map<string, Redis | Cluster>();
 
 export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOptions {
-  const options: RedisOptions = {
-    host: config.host,
-    port: config.port,
+  const base: RedisOptions = {
     db,
     connectTimeout: 10000,
     commandTimeout: 5000,
@@ -28,18 +32,29 @@ export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOption
   };
 
   if (config.passwordEnc) {
-    options.password = decrypt(config.passwordEnc);
+    base.password = decrypt(config.passwordEnc);
   }
 
   if (config.username) {
-    options.username = config.username;
+    base.username = config.username;
   }
 
   if (config.useTLS) {
-    options.tls = {};
+    base.tls = {};
   }
 
-  return options;
+  if (config.mode === 'SENTINEL') {
+    const sentinels: SentinelAddress[] = (config.sentinelNodes ?? []).map(
+      (n) => ({ host: n.host, port: n.port })
+    );
+    return {
+      ...base,
+      sentinels,
+      name: config.sentinelMaster ?? 'mymaster',
+    };
+  }
+
+  return { ...base, host: config.host, port: config.port };
 }
 
 export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<Redis> {
@@ -66,7 +81,7 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
   return client;
 }
 
-export async function testConnection(config: Omit<ConnectionConfig, 'id'>): Promise<{ success: boolean; latency?: number; error?: string }> {
+export async function testConnection(config: Omit<ConnectionConfig, 'id'> & { sentinelNodes?: SentinelNode[] | null }): Promise<{ success: boolean; latency?: number; error?: string }> {
   const testConfig: ConnectionConfig = { ...config, id: `test_${Date.now()}` };
   let client: Redis | null = null;
   const start = Date.now();

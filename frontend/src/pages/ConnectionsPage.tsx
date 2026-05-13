@@ -70,6 +70,7 @@ interface ConnectionFormData {
   useTLS: boolean
   mode: ConnectionMode
   sentinelMaster: string
+  sentinelNodes: { host: string; port: number }[]
   tags: string
 }
 
@@ -82,6 +83,7 @@ const defaultForm: ConnectionFormData = {
   useTLS: false,
   mode: 'STANDALONE',
   sentinelMaster: '',
+  sentinelNodes: [],
   tags: '',
 }
 
@@ -164,6 +166,7 @@ export default function ConnectionsPage() {
       useTLS: conn.useTLS,
       mode: conn.mode,
       sentinelMaster: conn.sentinelMaster ?? '',
+      sentinelNodes: conn.sentinelNodes ?? [],
       tags: conn.tags.join(', '),
     })
     setEditingId(conn.id)
@@ -183,6 +186,7 @@ export default function ConnectionsPage() {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
+      sentinelNodes: rest.mode === 'SENTINEL' ? rest.sentinelNodes : [],
       ...(editingId && keepPassword ? {} : { password }),
     }
     try {
@@ -695,6 +699,75 @@ export default function ConnectionsPage() {
                   value={formData.sentinelMaster}
                   onChange={(e) => updateField('sentinelMaster', e.target.value)}
                 />
+              </div>
+            )}
+
+            {/* Sentinel Nodes — only shown in SENTINEL mode */}
+            {formData.mode === 'SENTINEL' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Sentinel Nodes</Label>
+                  <button
+                    type="button"
+                    className="text-xs text-primary underline"
+                    onClick={() =>
+                      updateField('sentinelNodes', [
+                        ...formData.sentinelNodes,
+                        { host: '', port: 26379 },
+                      ])
+                    }
+                  >
+                    + Add node
+                  </button>
+                </div>
+                {formData.sentinelNodes.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Add at least one sentinel node (host:port).
+                  </p>
+                )}
+                {formData.sentinelNodes.map((node, idx) => (
+                  <div key={idx} className="grid grid-cols-3 gap-2 items-center">
+                    <div className="col-span-2">
+                      <Input
+                        placeholder="sentinel-host"
+                        value={node.host}
+                        onChange={(e) => {
+                          const updated = formData.sentinelNodes.map((n, i) =>
+                            i === idx ? { ...n, host: e.target.value } : n
+                          )
+                          updateField('sentinelNodes', updated)
+                        }}
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <Input
+                        type="number"
+                        placeholder="26379"
+                        min={1}
+                        max={65535}
+                        value={node.port}
+                        onChange={(e) => {
+                          const updated = formData.sentinelNodes.map((n, i) =>
+                            i === idx ? { ...n, port: parseInt(e.target.value, 10) } : n
+                          )
+                          updateField('sentinelNodes', updated)
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="text-destructive text-sm px-1"
+                        onClick={() =>
+                          updateField(
+                            'sentinelNodes',
+                            formData.sentinelNodes.filter((_, i) => i !== idx)
+                          )
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

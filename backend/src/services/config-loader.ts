@@ -19,6 +19,7 @@ export interface YamlConnection {
   useTLS?: boolean;
   mode?: 'STANDALONE' | 'SENTINEL' | 'CLUSTER';
   sentinelMaster?: string;
+  sentinelNodes?: { host: string; port: number }[];
   tags?: string[];
 }
 
@@ -145,6 +146,7 @@ export async function applyConfig(filePath: string): Promise<void> {
         useTLS: conn.useTLS ?? false,
         mode: conn.mode ?? 'STANDALONE',
         sentinelMaster: conn.sentinelMaster ?? null,
+        sentinelNodes: conn.sentinelNodes ?? null,
         tags: conn.tags ?? [],
         isActive: true,
       } as const;

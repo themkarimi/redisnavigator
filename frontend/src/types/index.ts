@@ -25,6 +25,7 @@ export interface RedisConnection {
   useTLS: boolean;
   mode: ConnectionMode;
   sentinelMaster?: string;
+  sentinelNodes?: { host: string; port: number }[];
   tags: string[];
   ownerId: string;
   isActive: boolean;

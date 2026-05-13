@@ -94,6 +94,7 @@ model RedisConnection {
   useTLS          Boolean            @default(false)
   mode            ConnectionMode     @default(STANDALONE)
   sentinelMaster  String?
+  sentinelNodes   Json?
   tags            String[]
   ownerId         String
   owner           User               @relation("ConnectionOwner", fields: [ownerId], references: [id])
