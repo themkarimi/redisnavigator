@@ -121,10 +121,22 @@ See [`backend/config.example.yaml`](backend/config.example.yaml) for a fully ann
 ## Helm Deployment
 
 A Helm chart is available under [`helm/redis-navigator`](helm/redis-navigator) for Kubernetes deployments.
+For full chart usage, including `helm repo add`, local installs, upgrades, and values examples, see [`helm/redis-navigator/README.md`](helm/redis-navigator/README.md).
+
+Published chart repo:
 
 ```bash
-# Install with default values (adjust as needed)
+helm repo add redisnavigator https://themkarimi.github.io/redisnavigator
+helm repo update
+```
+
+The chart repo is published by [`.github/workflows/helm-chart-release.yml`](.github/workflows/helm-chart-release.yml) to GitHub Pages from the `gh-pages` branch.
+
+```bash
+# Install from the local chart path (adjust values as needed)
 helm install redis-navigator ./helm/redis-navigator \
+  --namespace redis-navigator \
+  --create-namespace \
   --set backend.secret.jwtAccessSecret=<secret> \
   --set backend.secret.jwtRefreshSecret=<secret> \
   --set backend.secret.encryptionKey=<32-char-key> \
