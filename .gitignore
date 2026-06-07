@@ -44,3 +44,4 @@ coverage/
 
 values-temp.yaml
 venv
+.playwright-mcp
