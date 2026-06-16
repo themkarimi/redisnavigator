@@ -30,6 +30,22 @@ jobs:
       - name: Lint chart
         run: helm lint helm/redis-navigator
 
+      - name: Ensure GitHub Pages branch exists
+        run: |
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git switch --orphan gh-pages
+            git rm -rf .
+            printf '# RedisNavigator Helm chart repository\n' > README.md
+            git add README.md
+            git commit -m "Initialize gh-pages branch"
+            git push origin gh-pages
+          fi
+
+          git fetch origin +gh-pages:refs/remotes/origin/gh-pages
+          git checkout -f "$GITHUB_SHA"
+
       - name: Publish chart to GitHub Pages
         uses: helm/chart-releaser-action@v1.7.0
         with:
