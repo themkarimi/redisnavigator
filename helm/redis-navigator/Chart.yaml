@@ -8,8 +8,8 @@ keywords:
   - redis
   - gui
   - dashboard
-home: https://github.com/themkarimi/redis-navigator
+home: https://github.com/themkarimi/redisnavigator
 sources:
-  - https://github.com/themkarimi/redis-navigator
+  - https://github.com/themkarimi/redisnavigator
 maintainers:
   - name: themkarimi

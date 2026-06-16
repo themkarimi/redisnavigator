@@ -37,16 +37,27 @@ jobs:
 
       - name: Ensure GitHub Pages branch exists
         run: |
-          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+          should_initialize_pages=false
+
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin +gh-pages:refs/remotes/origin/gh-pages
+            if ! git cat-file -e refs/remotes/origin/gh-pages:index.yaml 2>/dev/null; then
+              should_initialize_pages=true
+            fi
+          else
+            should_initialize_pages=true
+          fi
+
+          if [ "$should_initialize_pages" = "true" ]; then
             git switch --orphan gh-pages
             git rm -rf .
             printf '# RedisNavigator Helm chart repository\n' > README.md
             git add README.md
             git commit -m "Initialize gh-pages branch"
-            git push origin gh-pages
+            git push --force origin gh-pages
+            git fetch origin +gh-pages:refs/remotes/origin/gh-pages
           fi
 
-          git fetch origin +gh-pages:refs/remotes/origin/gh-pages
           git checkout -f "$GITHUB_SHA"
 
       - name: Publish chart to GitHub Pages
