@@ -30,11 +30,14 @@ jobs:
       - name: Lint chart
         run: helm lint helm/redis-navigator
 
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Ensure GitHub Pages branch exists
         run: |
           if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git switch --orphan gh-pages
             git rm -rf .
             printf '# RedisNavigator Helm chart repository\n' > README.md
