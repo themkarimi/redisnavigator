@@ -30,6 +30,10 @@ export function setupMetricsSocket(io: Server): void {
 
         const intervalKey = `${socket.id}:${connectionId}`;
 
+        // Re-subscribe on the same key must not orphan the prior interval.
+        const prevInterval = metricsIntervals.get(intervalKey);
+        if (prevInterval) clearInterval(prevInterval);
+
         const interval = setInterval(async () => {
           try {
             const client = await getRedisClient(connection);

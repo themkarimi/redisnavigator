@@ -22,6 +22,27 @@ interface ConnectionConfig {
 }
 
 const connectionPool = new Map<string, Redis | Cluster>();
+const lastUsed = new Map<string, number>();
+
+// Idle pooled clients are evicted after this long with no use, so connections to
+// rarely-touched (connection, db) pairs don't accumulate for the process lifetime.
+const IDLE_TTL_MS = 5 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 60 * 1000;
+
+const idleSweep = setInterval(() => {
+  const now = Date.now();
+  for (const [key, client] of connectionPool.entries()) {
+    const used = lastUsed.get(key) ?? 0;
+    if (now - used > IDLE_TTL_MS) {
+      client.removeAllListeners('error');
+      client.quit().catch(() => client.disconnect());
+      connectionPool.delete(key);
+      lastUsed.delete(key);
+    }
+  }
+}, SWEEP_INTERVAL_MS);
+// Don't keep the event loop alive for the sweep alone.
+idleSweep.unref?.();
 
 export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOptions {
   const base: RedisOptions = {
@@ -31,6 +52,10 @@ export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOption
     lazyConnect: true,
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
+    // Cap reconnection: a dead/unreachable target stops retrying after ~10 attempts
+    // instead of ioredis' default infinite loop, so evicted clients can fully die.
+    retryStrategy: (times: number) => (times > 10 ? null : Math.min(times * 200, 2000)),
+    reconnectOnError: () => false,
   };
 
   if (config.passwordEnc) {
@@ -69,9 +94,15 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
   if (existing && existing instanceof Redis) {
     try {
       await existing.ping();
+      lastUsed.set(poolKey, Date.now());
       return existing;
     } catch {
+      // Tear the stale client down before dropping it — otherwise it lingers in
+      // ioredis' reconnection loop, holding a socket and timers forever (zombie leak).
+      existing.removeAllListeners('error');
+      existing.disconnect();
       connectionPool.delete(poolKey);
+      lastUsed.delete(poolKey);
     }
   }
 
@@ -84,6 +115,7 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
 
   await client.connect();
   connectionPool.set(poolKey, client);
+  lastUsed.set(poolKey, Date.now());
   return client;
 }
 
@@ -121,6 +153,7 @@ export async function closeConnection(connectionId: string): Promise<void> {
       client.removeAllListeners('error');
       await client.quit().catch(() => client.disconnect());
       connectionPool.delete(key);
+      lastUsed.delete(key);
     }
   }
 }
