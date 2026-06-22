@@ -1,8 +1,8 @@
-import Redis, { RedisOptions, Cluster, SentinelAddress } from 'ioredis';
+import Redis, { RedisOptions, Cluster, ClusterNode, SentinelAddress } from 'ioredis';
 import { decrypt } from '../utils/encryption';
 import { logger } from '../config/logger';
 
-interface SentinelNode {
+interface NodeAddress {
   host: string;
   port: number;
 }
@@ -17,8 +17,19 @@ interface ConnectionConfig {
   mode: string;
   sentinelMaster?: string | null;
   // Widened to unknown so Prisma's JsonValue passes without casting at every call site.
-  // buildRedisOptions parses the value safely at runtime.
+  // buildRedisOptions / createClient parse the value safely at runtime.
   sentinelNodes?: unknown;
+  clusterNodes?: unknown;
+}
+
+// Coerce a Prisma JSON value into a typed list of host:port nodes, dropping anything malformed.
+function parseNodes(raw: unknown): NodeAddress[] {
+  return (Array.isArray(raw) ? raw : [])
+    .map((n: unknown) => {
+      const node = n as NodeAddress;
+      return { host: node.host, port: node.port };
+    })
+    .filter((n) => typeof n.host === 'string' && n.host.length > 0 && typeof n.port === 'number');
 }
 
 const connectionPool = new Map<string, Redis | Cluster>();
@@ -71,13 +82,7 @@ export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOption
   }
 
   if (config.mode === 'SENTINEL') {
-    const rawNodes = config.sentinelNodes;
-    const sentinels: SentinelAddress[] = (Array.isArray(rawNodes) ? rawNodes : []).map(
-      (n: unknown) => {
-        const node = n as SentinelNode;
-        return { host: node.host, port: node.port };
-      }
-    );
+    const sentinels: SentinelAddress[] = parseNodes(config.sentinelNodes);
     return {
       ...base,
       sentinels,
@@ -88,10 +93,41 @@ export function buildRedisOptions(config: ConnectionConfig, db = 0): RedisOption
   return { ...base, host: config.host, port: config.port };
 }
 
-export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<Redis> {
+// Build a connected-but-lazy client for any mode. CLUSTER returns an ioredis Cluster
+// seeded from clusterNodes (falling back to the primary host:port); all other modes
+// return a plain Redis built from buildRedisOptions.
+function createClient(config: ConnectionConfig, db = 0): Redis | Cluster {
+  if (config.mode === 'CLUSTER') {
+    const nodes = parseNodes(config.clusterNodes);
+    const seeds: ClusterNode[] = nodes.length > 0 ? nodes : [{ host: config.host, port: config.port }];
+
+    const redisOptions: RedisOptions = {
+      connectTimeout: 10000,
+      commandTimeout: 5000,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+    };
+    if (config.passwordEnc) redisOptions.password = decrypt(config.passwordEnc);
+    if (config.username) redisOptions.username = config.username;
+    if (config.useTLS) redisOptions.tls = {};
+
+    // Note: Redis Cluster does not support SELECT, so `db` is intentionally ignored here.
+    return new Redis.Cluster(seeds, {
+      lazyConnect: true,
+      enableOfflineQueue: false,
+      redisOptions,
+      // Match the standalone cap: stop retrying a dead cluster after ~10 attempts.
+      clusterRetryStrategy: (times: number) => (times > 10 ? null : Math.min(times * 200, 2000)),
+    });
+  }
+
+  return new Redis(buildRedisOptions(config, db));
+}
+
+export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<Redis | Cluster> {
   const poolKey = `${config.id}:${db}`;
   const existing = connectionPool.get(poolKey);
-  if (existing && existing instanceof Redis) {
+  if (existing) {
     try {
       await existing.ping();
       lastUsed.set(poolKey, Date.now());
@@ -106,8 +142,7 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
     }
   }
 
-  const options = buildRedisOptions(config, db);
-  const client = new Redis(options);
+  const client = createClient(config, db);
 
   client.on('error', (err) => {
     logger.warn(`Redis client error for connection ${config.id} db ${db}:`, err.message);
@@ -121,12 +156,11 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
 
 export async function testConnection(config: Omit<ConnectionConfig, 'id'>): Promise<{ success: boolean; latency?: number; error?: string }> {
   const testConfig: ConnectionConfig = { ...config, id: `test_${Date.now()}` };
-  let client: Redis | null = null;
+  let client: Redis | Cluster | null = null;
   const start = Date.now();
 
   try {
-    const options = buildRedisOptions(testConfig);
-    client = new Redis({ ...options, lazyConnect: true });
+    client = createClient(testConfig);
     await client.connect();
     await client.ping();
     const latency = Date.now() - start;

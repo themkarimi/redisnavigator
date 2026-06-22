@@ -172,15 +172,10 @@ export default function PubSubPage() {
   const handleUnsubscribe = useCallback(
     (channel: string) => {
       if (!socketRef.current) return
-      const remaining = activeSubscriptions.filter((c) => c !== channel)
-      if (remaining.length > 0) {
-        socketRef.current.emit('subscribe', { connectionId, channels: remaining })
-      } else {
-        socketRef.current.emit('unsubscribe', { connectionId })
-      }
-      setActiveSubscriptions(remaining)
+      socketRef.current.emit('unsubscribe', { connectionId, channels: [channel] })
+      setActiveSubscriptions((prev) => prev.filter((c) => c !== channel))
     },
-    [connectionId, activeSubscriptions]
+    [connectionId]
   )
 
   const handlePSubscribe = useCallback(() => {
@@ -198,15 +193,10 @@ export default function PubSubPage() {
   const handlePUnsubscribe = useCallback(
     (pattern: string) => {
       if (!socketRef.current) return
-      const remainingPatterns = activePatterns.filter((p) => p !== pattern)
-      if (remainingPatterns.length > 0) {
-        socketRef.current.emit('psubscribe', { connectionId, patterns: remainingPatterns })
-      } else {
-        socketRef.current.emit('unsubscribe', { connectionId })
-      }
-      setActivePatterns(remainingPatterns)
+      socketRef.current.emit('unsubscribe', { connectionId, patterns: [pattern] })
+      setActivePatterns((prev) => prev.filter((p) => p !== pattern))
     },
-    [connectionId, activePatterns]
+    [connectionId]
   )
 
   // ---------------------------------------------------------------------------

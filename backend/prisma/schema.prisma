@@ -55,56 +55,57 @@ enum AuditAction {
 }
 
 model User {
-  id                String               @id @default(cuid())
-  email             String               @unique
-  password          String?
-  name              String
-  oidcSub           String?              @unique
-  isActive          Boolean              @default(true)
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  name      String
+  oidcSub   String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  refreshTokens     RefreshToken[]
-  connectionRoles   UserConnectionRole[]
-  ownedConnections  RedisConnection[]    @relation("ConnectionOwner")
-  auditLogs         AuditLog[]
-  groupMembers      GroupMember[]
+  refreshTokens    RefreshToken[]
+  connectionRoles  UserConnectionRole[]
+  ownedConnections RedisConnection[]    @relation("ConnectionOwner")
+  auditLogs        AuditLog[]
+  groupMembers     GroupMember[]
 }
 
 model RefreshToken {
-  id          String   @id @default(cuid())
-  token       String   @unique
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt   DateTime
-  isRevoked   Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([token])
 }
 
 model RedisConnection {
-  id              String             @id @default(cuid())
-  name            String
-  host            String
-  port            Int                @default(6379)
-  passwordEnc     String?
-  username        String?
-  useTLS          Boolean            @default(false)
-  mode            ConnectionMode     @default(STANDALONE)
-  sentinelMaster  String?
-  sentinelNodes   Json?
-  tags            String[]
-  ownerId         String
-  owner           User               @relation("ConnectionOwner", fields: [ownerId], references: [id])
-  isActive        Boolean            @default(true)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id             String         @id @default(cuid())
+  name           String
+  host           String
+  port           Int            @default(6379)
+  passwordEnc    String?
+  username       String?
+  useTLS         Boolean        @default(false)
+  mode           ConnectionMode @default(STANDALONE)
+  sentinelMaster String?
+  sentinelNodes  Json?
+  clusterNodes   Json?
+  tags           String[]
+  ownerId        String
+  owner          User           @relation("ConnectionOwner", fields: [ownerId], references: [id])
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  userRoles       UserConnectionRole[]
-  groupRoles      GroupConnectionRole[]
-  auditLogs       AuditLog[]
+  userRoles  UserConnectionRole[]
+  groupRoles GroupConnectionRole[]
+  auditLogs  AuditLog[]
 
   @@index([ownerId])
 }
@@ -126,7 +127,7 @@ model UserConnectionRole {
 }
 
 model AuditLog {
-  id             String          @id @default(cuid())
+  id             String      @id @default(cuid())
   userId         String
   connectionId   String?
   connectionName String?
@@ -135,10 +136,10 @@ model AuditLog {
   details        Json?
   ipAddress      String?
   userAgent      String?
-  createdAt      DateTime        @default(now())
+  createdAt      DateTime    @default(now())
 
-  user         User            @relation(fields: [userId], references: [id])
-  connection   RedisConnection? @relation(fields: [connectionId], references: [id])
+  user       User             @relation(fields: [userId], references: [id])
+  connection RedisConnection? @relation(fields: [connectionId], references: [id])
 
   @@index([userId])
   @@index([connectionId])

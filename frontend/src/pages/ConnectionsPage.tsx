@@ -71,6 +71,7 @@ interface ConnectionFormData {
   mode: ConnectionMode
   sentinelMaster: string
   sentinelNodes: { host: string; port: number }[]
+  clusterNodes: { host: string; port: number }[]
   tags: string
 }
 
@@ -84,6 +85,7 @@ const defaultForm: ConnectionFormData = {
   mode: 'STANDALONE',
   sentinelMaster: '',
   sentinelNodes: [],
+  clusterNodes: [],
   tags: '',
 }
 
@@ -167,6 +169,7 @@ export default function ConnectionsPage() {
       mode: conn.mode,
       sentinelMaster: conn.sentinelMaster ?? '',
       sentinelNodes: conn.sentinelNodes ?? [],
+      clusterNodes: conn.clusterNodes ?? [],
       tags: conn.tags.join(', '),
     })
     setEditingId(conn.id)
@@ -187,6 +190,7 @@ export default function ConnectionsPage() {
         .map((t) => t.trim())
         .filter(Boolean),
       sentinelNodes: rest.mode === 'SENTINEL' ? rest.sentinelNodes : [],
+      clusterNodes: rest.mode === 'CLUSTER' ? rest.clusterNodes : [],
       ...(editingId && keepPassword ? {} : { password }),
     }
     try {
@@ -760,6 +764,74 @@ export default function ConnectionsPage() {
                           updateField(
                             'sentinelNodes',
                             formData.sentinelNodes.filter((_, i) => i !== idx)
+                          )
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Cluster Nodes — only shown in CLUSTER mode */}
+            {formData.mode === 'CLUSTER' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Cluster Nodes</Label>
+                  <button
+                    type="button"
+                    className="text-xs text-primary underline"
+                    onClick={() =>
+                      updateField('clusterNodes', [
+                        ...formData.clusterNodes,
+                        { host: '', port: 6379 },
+                      ])
+                    }
+                  >
+                    + Add node
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Add cluster seed nodes (host:port). If left empty, the Host/Port above is
+                  used as the seed.
+                </p>
+                {formData.clusterNodes.map((node, idx) => (
+                  <div key={idx} className="grid grid-cols-3 gap-2 items-center">
+                    <div className="col-span-2">
+                      <Input
+                        placeholder="cluster-host"
+                        value={node.host}
+                        onChange={(e) => {
+                          const updated = formData.clusterNodes.map((n, i) =>
+                            i === idx ? { ...n, host: e.target.value } : n
+                          )
+                          updateField('clusterNodes', updated)
+                        }}
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <Input
+                        type="number"
+                        placeholder="6379"
+                        min={1}
+                        max={65535}
+                        value={node.port}
+                        onChange={(e) => {
+                          const updated = formData.clusterNodes.map((n, i) =>
+                            i === idx ? { ...n, port: parseInt(e.target.value, 10) } : n
+                          )
+                          updateField('clusterNodes', updated)
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="text-destructive text-sm px-1"
+                        onClick={() =>
+                          updateField(
+                            'clusterNodes',
+                            formData.clusterNodes.filter((_, i) => i !== idx)
                           )
                         }
                       >

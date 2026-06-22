@@ -26,6 +26,7 @@ export interface RedisConnection {
   mode: ConnectionMode;
   sentinelMaster?: string;
   sentinelNodes?: { host: string; port: number }[];
+  clusterNodes?: { host: string; port: number }[];
   tags: string[];
   ownerId: string;
   isActive: boolean;

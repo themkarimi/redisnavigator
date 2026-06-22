@@ -24,6 +24,7 @@ const connectionSchema = z.object({
   mode: z.enum(['STANDALONE', 'SENTINEL', 'CLUSTER']).default('STANDALONE'),
   sentinelMaster: z.string().nullish(),
   sentinelNodes: z.array(z.object({ host: z.string().min(1), port: z.number().int().min(1).max(65535) })).nullish(),
+  clusterNodes: z.array(z.object({ host: z.string().min(1), port: z.number().int().min(1).max(65535) })).nullish(),
   tags: z.array(z.string()).default([]),
 });
 
@@ -102,6 +103,7 @@ router.post(
           mode: data.mode,
           sentinelMaster: data.sentinelMaster,
           sentinelNodes: data.sentinelNodes ?? Prisma.JsonNull,
+          clusterNodes: data.clusterNodes ?? Prisma.JsonNull,
           tags: data.tags,
           ownerId: req.user!.userId,
         },
@@ -197,6 +199,7 @@ router.post('/test', async (req: AuthenticatedRequest, res: Response): Promise<v
       mode: data.mode,
       sentinelMaster: data.sentinelMaster,
       sentinelNodes: data.sentinelNodes ?? null,
+      clusterNodes: data.clusterNodes ?? null,
     });
     res.json(result);
   } catch (err) {

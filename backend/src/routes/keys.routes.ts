@@ -8,7 +8,7 @@ import { auditLog } from '../middleware/audit.middleware';
 import { getRedisClient } from '../services/redis.service';
 import { ConnectionAccessRequest } from '../types';
 import { AuditAction, Permission } from '@prisma/client';
-import { Redis } from 'ioredis';
+import { Redis, Cluster } from 'ioredis';
 
 const router = Router({ mergeParams: true });
 
@@ -50,7 +50,7 @@ router.get(
       const client = await getRedisClient(connection, parseDb(req));
 
       const keys: string[] = [];
-      const [nextCursor, batch] = await client.scan(cursorParam, 'MATCH', pattern, 'COUNT', parseInt(count, 10));
+      const { nextCursor, batch } = await scanKeys(client, cursorParam, pattern, parseInt(count, 10));
 
       if (type) {
         for (const key of batch) {
@@ -416,7 +416,57 @@ router.post(
   }
 );
 
-async function setRedisValue(client: Redis, key: string, type: string, value: unknown): Promise<void> {
+// SCAN over a whole keyspace. A standalone node scans directly. A cluster shards keys
+// across masters, so a single SCAN only sees one shard — we fan the cursor out per master
+// and pack their individual cursors into one opaque base64 token, preserving the
+// single-cursor pagination contract the frontend relies on ('0' === fully drained).
+async function scanKeys(
+  client: Redis | Cluster,
+  cursorParam: string,
+  pattern: string,
+  count: number
+): Promise<{ nextCursor: string; batch: string[] }> {
+  if (!(client instanceof Cluster)) {
+    const [nextCursor, batch] = await client.scan(cursorParam, 'MATCH', pattern, 'COUNT', count);
+    return { nextCursor, batch };
+  }
+
+  const masters = client.nodes('master');
+  const byKey = new Map(masters.map((n) => [`${n.options.host}:${n.options.port}`, n]));
+
+  // '0' = fresh scan: start every master at cursor 0. Otherwise decode per-node cursors.
+  let nodeCursors: Record<string, string>;
+  if (cursorParam === '0') {
+    nodeCursors = {};
+    for (const k of byKey.keys()) nodeCursors[k] = '0';
+  } else {
+    try {
+      nodeCursors = JSON.parse(Buffer.from(cursorParam, 'base64').toString('utf8'));
+    } catch {
+      nodeCursors = {};
+    }
+  }
+
+  const batch: string[] = [];
+  for (const k of Object.keys(nodeCursors)) {
+    const node = byKey.get(k);
+    if (!node) { delete nodeCursors[k]; continue; } // master gone (failover / reshard)
+    const [next, keys] = await node.scan(nodeCursors[k] as string, 'MATCH', pattern, 'COUNT', count);
+    batch.push(...keys);
+    if (next === '0') delete nodeCursors[k]; // this shard fully drained
+    else nodeCursors[k] = next;
+    if (batch.length >= count) break;
+  }
+
+  // No shards left → signal completion with '0'; otherwise hand back an opaque resume token.
+  const nextCursor =
+    Object.keys(nodeCursors).length > 0
+      ? Buffer.from(JSON.stringify(nodeCursors)).toString('base64')
+      : '0';
+  return { nextCursor, batch };
+}
+
+async function setRedisValue(client: Redis | Cluster, key: string, type: string, value: unknown): Promise<void> {
   switch (type) {
     case 'string':
       await client.set(key, String(value));
