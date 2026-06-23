@@ -11,6 +11,8 @@
 - Embedded Redis CLI with command history
 - Real-time Pub/Sub monitor
 - Live metrics dashboard with charts
+- Slow log viewer (per-command latency)
+- Memory analysis (sampled keyspace breakdown by type, prefix, and biggest keys)
 - Role-based access control (SuperAdmin, Admin, Operator, Viewer)
 - JWT authentication with refresh tokens
 - OIDC / SSO login support

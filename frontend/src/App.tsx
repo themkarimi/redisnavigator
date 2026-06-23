@@ -12,6 +12,7 @@ const KeyBrowserPage = React.lazy(() => import('@/pages/KeyBrowserPage'))
 const CLIPage = React.lazy(() => import('@/pages/CLIPage'))
 const PubSubPage = React.lazy(() => import('@/pages/PubSubPage'))
 const MetricsPage = React.lazy(() => import('@/pages/MetricsPage'))
+const MemoryAnalysisPage = React.lazy(() => import('@/pages/MemoryAnalysisPage'))
 const ConfigPage = React.lazy(() => import('@/pages/ConfigPage'))
 const AclPage = React.lazy(() => import('@/pages/AclPage'))
 const SettingsPage = React.lazy(() => import('@/pages/SettingsPage'))
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="/connections/:id/cli" element={<CLIPage />} />
               <Route path="/connections/:id/pubsub" element={<PubSubPage />} />
               <Route path="/connections/:id/metrics" element={<MetricsPage />} />
+              <Route path="/connections/:id/memory" element={<MemoryAnalysisPage />} />
               <Route path="/connections/:id/config" element={<ConfigPage />} />
               <Route path="/connections/:id/acl" element={<AclPage />} />
               <Route path="/settings" element={<SettingsPage />} />

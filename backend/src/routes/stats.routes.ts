@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import rateLimit from 'express-rate-limit';
+import { Redis, Cluster } from 'ioredis';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requirePermission } from '../middleware/rbac.middleware';
@@ -159,7 +160,21 @@ router.get(
       }
 
       const client = await getRedisClient(connection);
-      const slowlog = await client.slowlog('GET', '128');
+      // ioredis returns SLOWLOG GET as an array of arrays:
+      // [ id, timestamp, durationMicros, [arg, ...], clientAddr, clientName ]
+      const raw = (await client.slowlog('GET', '128')) as unknown[];
+
+      const slowlog = (Array.isArray(raw) ? raw : []).map((entry) => {
+        const e = entry as unknown[];
+        return {
+          id: Number(e[0] ?? 0),
+          timestamp: Number(e[1] ?? 0),
+          duration: Number(e[2] ?? 0),
+          args: Array.isArray(e[3]) ? (e[3] as unknown[]).map(String) : [],
+          client: typeof e[4] === 'string' ? e[4] : '',
+          clientName: typeof e[5] === 'string' ? e[5] : '',
+        };
+      });
 
       res.json({ slowlog });
     } catch (err) {
@@ -203,6 +218,170 @@ router.get(
       }
 
       res.json({ config });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Memory analysis
+// ---------------------------------------------------------------------------
+
+const MEMORY_DEFAULT_SAMPLE = 1000;
+const MEMORY_MAX_SAMPLE = 20000;
+const MEMORY_SCAN_COUNT = 500;
+const MEMORY_USAGE_CONCURRENCY = 50;
+const MEMORY_TOP_KEYS = 25;
+const MEMORY_TOP_PREFIXES = 25;
+
+// Collect up to `limit` keys by SCANning the keyspace. Standalone scans the node
+// directly; a cluster fans the cursor out across every master shard.
+async function sampleKeys(client: Redis | Cluster, limit: number): Promise<string[]> {
+  const collected: string[] = [];
+
+  if (!(client instanceof Cluster)) {
+    let cursor = '0';
+    do {
+      const [next, batch] = await client.scan(cursor, 'MATCH', '*', 'COUNT', MEMORY_SCAN_COUNT);
+      collected.push(...batch);
+      cursor = next;
+    } while (cursor !== '0' && collected.length < limit);
+    return collected.slice(0, limit);
+  }
+
+  for (const node of client.nodes('master')) {
+    let cursor = '0';
+    do {
+      const [next, batch] = await node.scan(cursor, 'MATCH', '*', 'COUNT', MEMORY_SCAN_COUNT);
+      collected.push(...batch);
+      cursor = next;
+    } while (cursor !== '0' && collected.length < limit);
+    if (collected.length >= limit) break;
+  }
+  return collected.slice(0, limit);
+}
+
+interface SampledKey {
+  key: string;
+  type: string;
+  bytes: number;
+  ttl: number;
+}
+
+// Resolve MEMORY USAGE / TYPE / TTL for each key, batched to bound concurrency.
+// Routes per-key, so it works for both standalone and cluster clients.
+async function measureKeys(client: Redis | Cluster, keys: string[]): Promise<SampledKey[]> {
+  const out: SampledKey[] = [];
+  for (let i = 0; i < keys.length; i += MEMORY_USAGE_CONCURRENCY) {
+    const chunk = keys.slice(i, i + MEMORY_USAGE_CONCURRENCY);
+    const measured = await Promise.all(
+      chunk.map(async (key): Promise<SampledKey | null> => {
+        try {
+          const [bytes, type, ttl] = await Promise.all([
+            client.memory('USAGE', key).catch(() => null),
+            client.type(key).catch(() => 'none'),
+            client.ttl(key).catch(() => -1),
+          ]);
+          if (type === 'none') return null; // key expired/deleted mid-scan
+          return { key, type: String(type), bytes: Number(bytes ?? 0), ttl: Number(ttl ?? -1) };
+        } catch {
+          return null;
+        }
+      })
+    );
+    out.push(...(measured.filter(Boolean) as SampledKey[]));
+  }
+  return out;
+}
+
+function prefixOf(key: string): string {
+  const idx = key.search(/[:|.#/]/);
+  return idx > 0 ? key.slice(0, idx) : '(no prefix)';
+}
+
+router.get(
+  '/memory',
+  statsLimiter,
+  // Editor-only: memory analysis SCANs the keyspace + runs MEMORY USAGE per key,
+  // so it is gated behind WRITE_KEY (Operator/Admin/SuperAdmin), not READ_KEY.
+  requirePermission(Permission.WRITE_KEY),
+  async (req: ConnectionAccessRequest, res: Response): Promise<void> => {
+    try {
+      const connection = await prisma.redisConnection.findFirst({
+        where: { id: req.params.id as string, isActive: true },
+      });
+
+      if (!connection) {
+        res.status(404).json({ error: 'Connection not found' });
+        return;
+      }
+
+      const requested = parseInt((req.query.sample as string) || '', 10);
+      const sampleLimit = Number.isFinite(requested)
+        ? Math.min(Math.max(requested, 1), MEMORY_MAX_SAMPLE)
+        : MEMORY_DEFAULT_SAMPLE;
+
+      const client = await getRedisClient(connection);
+
+      const dbsize = await client.dbsize().catch(() => 0);
+
+      // Overall memory figures from INFO (one node for a cluster).
+      const memInfo = await client.info('memory').catch(() => '');
+      const memParsed: Record<string, string> = {};
+      memInfo.split('\r\n').forEach((line) => {
+        if (line && !line.startsWith('#')) {
+          const [k, v] = line.split(':');
+          if (k && v !== undefined) memParsed[k.trim()] = v.trim();
+        }
+      });
+
+      const keys = await sampleKeys(client, sampleLimit);
+      const sampled = await measureKeys(client, keys);
+
+      const byTypeMap = new Map<string, { count: number; bytes: number }>();
+      const byPrefixMap = new Map<string, { count: number; bytes: number }>();
+      let sampledBytes = 0;
+
+      for (const item of sampled) {
+        sampledBytes += item.bytes;
+
+        const t = byTypeMap.get(item.type) ?? { count: 0, bytes: 0 };
+        t.count += 1;
+        t.bytes += item.bytes;
+        byTypeMap.set(item.type, t);
+
+        const p = prefixOf(item.key);
+        const pe = byPrefixMap.get(p) ?? { count: 0, bytes: 0 };
+        pe.count += 1;
+        pe.bytes += item.bytes;
+        byPrefixMap.set(p, pe);
+      }
+
+      const byType = Array.from(byTypeMap, ([type, v]) => ({ type, ...v })).sort(
+        (a, b) => b.bytes - a.bytes
+      );
+      const byPrefix = Array.from(byPrefixMap, ([prefix, v]) => ({ prefix, ...v }))
+        .sort((a, b) => b.bytes - a.bytes)
+        .slice(0, MEMORY_TOP_PREFIXES);
+      const topKeys = [...sampled].sort((a, b) => b.bytes - a.bytes).slice(0, MEMORY_TOP_KEYS);
+
+      res.json({
+        totalKeys: dbsize,
+        sampledKeys: sampled.length,
+        sampleLimit,
+        truncated: dbsize > sampled.length,
+        avgKeyBytes: sampled.length ? Math.round(sampledBytes / sampled.length) : 0,
+        sampledBytes,
+        usedMemory: parseInt(memParsed['used_memory'] || '0', 10),
+        usedMemoryHuman: memParsed['used_memory_human'] || '',
+        usedMemoryDataset: parseInt(memParsed['used_memory_dataset'] || '0', 10),
+        maxMemory: parseInt(memParsed['maxmemory'] || '0', 10),
+        memFragmentationRatio: parseFloat(memParsed['mem_fragmentation_ratio'] || '0'),
+        byType,
+        byPrefix,
+        topKeys,
+      });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }

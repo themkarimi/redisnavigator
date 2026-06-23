@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { ServerInfo } from '../types';
+import { ServerInfo, MemoryAnalysis } from '../types';
 
 export function useServerInfo(connectionId: string | null) {
   return useQuery({
@@ -49,5 +49,27 @@ export function useRedisConfig(connectionId: string | null) {
       return data.config;
     },
     enabled: !!connectionId,
+  });
+}
+
+// Memory analysis SCANs the keyspace, so it is expensive — only run on demand
+// (the page enables it via the `enabled` flag and re-runs with refetch).
+export function useMemoryAnalysis(
+  connectionId: string | null,
+  sample: number,
+  enabled: boolean
+) {
+  return useQuery({
+    queryKey: ['memory-analysis', connectionId, sample],
+    queryFn: async () => {
+      const { data } = await api.get<MemoryAnalysis>(
+        `/connections/${connectionId}/memory`,
+        { params: { sample } }
+      );
+      return data;
+    },
+    enabled: !!connectionId && enabled,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
   });
 }

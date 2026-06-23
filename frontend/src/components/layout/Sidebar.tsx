@@ -5,6 +5,7 @@ import {
   Terminal,
   Radio,
   BarChart2,
+  PieChart,
   SlidersHorizontal,
   Server,
   ShieldCheck,
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { label: 'CLI', icon: <Terminal className="h-4 w-4 flex-shrink-0" />, path: 'cli' },
   { label: 'Pub/Sub', icon: <Radio className="h-4 w-4 flex-shrink-0" />, path: 'pubsub' },
   { label: 'Metrics', icon: <BarChart2 className="h-4 w-4 flex-shrink-0" />, path: 'metrics' },
+  { label: 'Memory', icon: <PieChart className="h-4 w-4 flex-shrink-0" />, path: 'memory' },
   { label: 'Config', icon: <SlidersHorizontal className="h-4 w-4 flex-shrink-0" />, path: 'config' },
   { label: 'ACL', icon: <ShieldCheck className="h-4 w-4 flex-shrink-0" />, path: 'acl', adminOnly: true },
 ]

@@ -62,6 +62,42 @@ export interface ServerInfo {
   replication: { role: string; connectedSlaves: number };
 }
 
+export interface MemoryTypeStat {
+  type: string;
+  count: number;
+  bytes: number;
+}
+
+export interface MemoryPrefixStat {
+  prefix: string;
+  count: number;
+  bytes: number;
+}
+
+export interface MemoryKeyStat {
+  key: string;
+  type: string;
+  bytes: number;
+  ttl: number;
+}
+
+export interface MemoryAnalysis {
+  totalKeys: number;
+  sampledKeys: number;
+  sampleLimit: number;
+  truncated: boolean;
+  avgKeyBytes: number;
+  sampledBytes: number;
+  usedMemory: number;
+  usedMemoryHuman: string;
+  usedMemoryDataset: number;
+  maxMemory: number;
+  memFragmentationRatio: number;
+  byType: MemoryTypeStat[];
+  byPrefix: MemoryPrefixStat[];
+  topKeys: MemoryKeyStat[];
+}
+
 export interface MetricsSnapshot {
   timestamp: string;
   opsPerSec: number;
