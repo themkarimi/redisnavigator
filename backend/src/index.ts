@@ -12,6 +12,7 @@ import connectionRoutes from './routes/connections.routes';
 import keyRoutes from './routes/keys.routes';
 import cliRoutes from './routes/cli.routes';
 import statsRoutes from './routes/stats.routes';
+import aclRoutes from './routes/acl.routes';
 import userRoutes from './routes/users.routes';
 import groupRoutes from './routes/groups.routes';
 import featuresRoutes from './routes/features.routes';
@@ -50,6 +51,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/connections', connectionRoutes);
 app.use('/api/connections/:id/keys', keyRoutes);
 app.use('/api/connections/:id/cli', cliRoutes);
+app.use('/api/connections/:id/acl', aclRoutes);
 app.use('/api/connections/:id', statsRoutes);
 app.use('/api/features', featuresRoutes);
 

@@ -100,6 +100,36 @@ export interface GroupConnectionRole {
   connection: { id: string; name: string };
 }
 
+export interface AclUserSummary {
+  username: string;
+  enabled: boolean;
+  rules: string;
+}
+
+export interface AclUserDetail {
+  username: string;
+  flags: string[];
+  enabled: boolean;
+  nopass: boolean;
+  passwordHashes: string[];
+  commands: string;
+  keys: string;
+  channels: string;
+  selectors: unknown[];
+}
+
+export interface AclUserInput {
+  username?: string;
+  enabled: boolean;
+  nopass: boolean;
+  passwords?: string[];
+  keepExistingPasswords?: boolean;
+  keys: string;
+  channels: string;
+  commands: string;
+  rawRules?: string;
+}
+
 export interface Group {
   id: string;
   name: string;

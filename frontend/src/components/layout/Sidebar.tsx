@@ -7,6 +7,7 @@ import {
   BarChart2,
   SlidersHorizontal,
   Server,
+  ShieldCheck,
   Settings,
   Users,
   UsersRound,
@@ -40,6 +41,7 @@ type NavItem = {
   label: string
   icon: React.ReactNode
   path: string
+  adminOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -48,6 +50,7 @@ const navItems: NavItem[] = [
   { label: 'Pub/Sub', icon: <Radio className="h-4 w-4 flex-shrink-0" />, path: 'pubsub' },
   { label: 'Metrics', icon: <BarChart2 className="h-4 w-4 flex-shrink-0" />, path: 'metrics' },
   { label: 'Config', icon: <SlidersHorizontal className="h-4 w-4 flex-shrink-0" />, path: 'config' },
+  { label: 'ACL', icon: <ShieldCheck className="h-4 w-4 flex-shrink-0" />, path: 'acl', adminOnly: true },
 ]
 
 export function Sidebar() {
@@ -77,6 +80,7 @@ export function Sidebar() {
   }
 
   const canManageUsers = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN'
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || canManageUsers)
   const activeId = connectionId ?? activeConnectionId
   const activeConnection = connections.find((c) => c.id === activeId)
 
@@ -243,7 +247,7 @@ export function Sidebar() {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
           <p className={sectionHeadingCls}>Navigate</p>
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const to = activeId ? `/connections/${activeId}/${item.path}` : '#'
             const disabled = !activeId
             const isActive =
