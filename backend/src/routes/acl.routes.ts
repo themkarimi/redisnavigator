@@ -119,15 +119,22 @@ router.post(
       if (!connection) { res.status(404).json({ error: 'Connection not found' }); return; }
 
       const client = await getRedisClient(connection);
-      await Promise.all(masterNodes(client).map((node) => aclOnNode(node, 'SAVE')));
-      res.json({ message: 'ACL rules saved to the configured ACL file' });
-    } catch (err) {
-      const msg = (err as Error).message ?? '';
-      // Redis returns this when no `aclfile` is configured (rules then live only in redis.conf).
-      if (msg.includes('not configured to use an ACL file')) {
-        res.status(400).json({ error: 'This Redis instance has no ACL file configured. Persist via CONFIG REWRITE instead.' });
-        return;
+      const nodes = masterNodes(client);
+
+      try {
+        await Promise.all(nodes.map((node) => aclOnNode(node, 'SAVE')));
+        res.json({ message: 'ACL rules saved to the configured ACL file' });
+      } catch (saveErr) {
+        const msg = (saveErr as Error).message ?? '';
+        // No `aclfile` configured: rules live only in redis.conf, so fall back to rewriting it.
+        if (msg.includes('not configured to use an ACL file')) {
+          await Promise.all(nodes.map((node) => node.call('CONFIG', 'REWRITE')));
+          res.json({ message: 'ACL rules persisted via CONFIG REWRITE' });
+          return;
+        }
+        throw saveErr;
       }
+    } catch (err) {
       if (isAclUnavailable(err as Error)) { res.status(400).json({ error: 'ACL commands are not available on this Redis instance.' }); return; }
       res.status(500).json({ error: (err as Error).message });
     }
