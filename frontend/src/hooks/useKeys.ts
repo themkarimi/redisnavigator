@@ -33,8 +33,8 @@ export function useKeyDetail(connectionId: string, key: string | null) {
 export function useCreateKey() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ connectionId, ...data }: { connectionId: string; key: string; type: string; value: unknown; ttl?: number }) => {
-      const { data: result } = await api.post(`/connections/${connectionId}/keys`, data);
+    mutationFn: async ({ connectionId, db, ...data }: { connectionId: string; db?: number; key: string; type: string; value: unknown; ttl?: number }) => {
+      const { data: result } = await api.post(`/connections/${connectionId}/keys`, data, { params: { db } });
       return result as { message: string; key: string };
     },
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['keys', vars.connectionId] }),
@@ -68,8 +68,8 @@ export function useDeleteKey() {
 export function useBulkDeleteKeys() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ connectionId, keys }: { connectionId: string; keys: string[] }) => {
-      const { data } = await api.post(`/connections/${connectionId}/keys/bulk-delete`, { keys });
+    mutationFn: async ({ connectionId, keys, db }: { connectionId: string; keys: string[]; db?: number }) => {
+      const { data } = await api.post(`/connections/${connectionId}/keys/bulk-delete`, { keys }, { params: { db } });
       return data;
     },
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['keys', vars.connectionId] }),

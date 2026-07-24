@@ -3,7 +3,7 @@ import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { requireRole } from '../middleware/rbac.middleware';
+import { requireRole, userAdministersConnection } from '../middleware/rbac.middleware';
 import { requireConfigEditable } from '../middleware/configAsCode.middleware';
 import { auditLog } from '../middleware/audit.middleware';
 import { AuthenticatedRequest } from '../types';
@@ -170,6 +170,12 @@ router.post(
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const data = assignConnectionSchema.parse(req.body);
+
+      if (!(await userAdministersConnection(req.user!.userId, data.connectionId))) {
+        res.status(403).json({ error: 'You do not administer this connection' });
+        return;
+      }
+
       const groupConnectionRole = await prisma.groupConnectionRole.upsert({
         where: { groupId_connectionId: { groupId: req.params.id as string, connectionId: data.connectionId } },
         update: { role: data.role, permissions: ROLE_PERMISSIONS[data.role] },

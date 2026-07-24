@@ -50,6 +50,10 @@ export interface RedisKeyDetail extends RedisKey {
   fieldEncodings?: Record<string, BinaryEncoding>;
   elementEncodings?: BinaryEncoding[];
   memberEncodings?: BinaryEncoding[];
+  /** True when the collection has more elements than the server returned (list/set/zset only). */
+  truncated?: boolean;
+  /** Full element count from the server (LLEN/SCARD/ZCARD), independent of how many were fetched. */
+  total?: number;
 }
 
 export interface ServerInfo {

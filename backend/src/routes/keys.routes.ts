@@ -12,6 +12,11 @@ import { Redis, Cluster } from 'ioredis';
 
 const router = Router({ mergeParams: true });
 
+// Cap on elements fetched in one shot for the key-detail view. Collections larger than
+// this are read via a bounded range/SCAN instead of ALL-at-once (LRANGE 0 -1 / SMEMBERS /
+// ZRANGE 0 -1), so a huge key can't block Redis or blow the request timeout / OOM the backend.
+const MAX_DETAIL_ELEMENTS = 1000;
+
 /** Round-trip UTF-8 check: valid UTF-8 bytes survive re-encoding unchanged. */
 function encodeBuffer(buf: Buffer): { value: string; encoding: 'utf8' | 'base64' } {
   const str = buf.toString('utf8');
@@ -103,6 +108,8 @@ router.get(
       let fieldEncodings: Record<string, 'utf8' | 'base64'> | undefined;
       let elementEncodings: Array<'utf8' | 'base64'> | undefined;
       let memberEncodings: Array<'utf8' | 'base64'> | undefined;
+      let total: number | undefined;
+      let truncated: boolean | undefined;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clientAny = client as any;
@@ -135,7 +142,9 @@ router.get(
           break;
         }
         case 'list': {
-          const bufs: Buffer[] = await clientAny.lrangeBuffer(key, 0, -1);
+          total = await client.llen(key);
+          truncated = total > MAX_DETAIL_ELEMENTS;
+          const bufs: Buffer[] = await clientAny.lrangeBuffer(key, 0, MAX_DETAIL_ELEMENTS - 1);
           elementEncodings = [];
           value = bufs.map((buf) => {
             const { value: v, encoding: enc } = encodeBuffer(buf);
@@ -145,9 +154,17 @@ router.get(
           break;
         }
         case 'set': {
-          const bufs: Buffer[] = await clientAny.smembersBuffer(key);
+          total = await client.scard(key);
+          truncated = total > MAX_DETAIL_ELEMENTS;
+          const bufs: Buffer[] = [];
+          let sscanCursor = '0';
+          do {
+            const [next, batch]: [string, Buffer[]] = await clientAny.sscanBuffer(key, sscanCursor, 'COUNT', 100);
+            sscanCursor = next;
+            bufs.push(...batch);
+          } while (sscanCursor !== '0' && bufs.length < MAX_DETAIL_ELEMENTS);
           elementEncodings = [];
-          value = bufs.map((buf) => {
+          value = bufs.slice(0, MAX_DETAIL_ELEMENTS).map((buf) => {
             const { value: v, encoding: enc } = encodeBuffer(buf);
             elementEncodings!.push(enc);
             return v;
@@ -155,7 +172,9 @@ router.get(
           break;
         }
         case 'zset': {
-          const bufs: Buffer[] = await clientAny.zrangeBuffer(key, 0, -1, 'WITHSCORES');
+          total = await client.zcard(key);
+          truncated = total > MAX_DETAIL_ELEMENTS;
+          const bufs: Buffer[] = await clientAny.zrangeBuffer(key, 0, MAX_DETAIL_ELEMENTS - 1, 'WITHSCORES');
           memberEncodings = [];
           const entries: Array<{ member: string; score: number }> = [];
           for (let i = 0; i < bufs.length; i += 2) {
@@ -173,7 +192,7 @@ router.get(
           value = null;
       }
 
-      res.json({ key, type: keyType, value, ttl, keySize, encoding, fieldEncodings, elementEncodings, memberEncodings });
+      res.json({ key, type: keyType, value, ttl, keySize, encoding, fieldEncodings, elementEncodings, memberEncodings, total, truncated });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -229,6 +248,13 @@ router.put(
 
       const keyType = await client.type(key);
       if (keyType === 'none') { res.status(404).json({ error: 'Key not found' }); return; }
+
+      if (await isOversizedCollection(client, key, keyType)) {
+        res.status(409).json({
+          error: `Collection has more than ${MAX_DETAIL_ELEMENTS} elements; full-value overwrite is disabled to avoid truncating it. Edit individual fields/elements instead.`,
+        });
+        return;
+      }
 
       await setRedisValue(client, key, keyType, value);
 
@@ -373,7 +399,7 @@ router.post(
       }
 
       const client = await getRedisClient(connection, parseDb(req));
-      const deleted = await client.del(...keys);
+      const deleted = await delKeys(client, keys);
       res.json({ message: `Deleted ${deleted} keys`, deleted });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -402,10 +428,10 @@ router.post(
       let cursor = '0';
 
       do {
-        const [nextCursor, batch] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        const { nextCursor, batch } = await scanKeys(client, cursor, pattern, 100);
         cursor = nextCursor;
         if (batch.length > 0) {
-          deleted += await client.del(...batch);
+          deleted += await delKeys(client, batch);
         }
       } while (cursor !== '0');
 
@@ -464,6 +490,33 @@ async function scanKeys(
       ? Buffer.from(JSON.stringify(nodeCursors)).toString('base64')
       : '0';
   return { nextCursor, batch };
+}
+
+// DEL is single-slot on CLUSTER: a multi-key call throws CROSSSLOT unless every key
+// happens to hash to the same slot. Deleting one key at a time works uniformly on
+// every mode and avoids that error entirely.
+async function delKeys(client: Redis | Cluster, keys: string[]): Promise<number> {
+  if (!(client instanceof Cluster)) {
+    return client.del(...keys);
+  }
+  const results = await Promise.all(keys.map((k) => client.del(k)));
+  return results.reduce((sum, n) => sum + n, 0);
+}
+
+// Full-value PUT does a blind del+recreate — safe only when the whole collection fits
+// in one response (see MAX_DETAIL_ELEMENTS above). Anything bigger must go through the
+// field-level PATCH/fields routes instead, or the parts past the fetched window get lost.
+async function isOversizedCollection(client: Redis | Cluster, key: string, type: string): Promise<boolean> {
+  switch (type) {
+    case 'list':
+      return (await client.llen(key)) > MAX_DETAIL_ELEMENTS;
+    case 'set':
+      return (await client.scard(key)) > MAX_DETAIL_ELEMENTS;
+    case 'zset':
+      return (await client.zcard(key)) > MAX_DETAIL_ELEMENTS;
+    default:
+      return false;
+  }
 }
 
 async function setRedisValue(client: Redis | Cluster, key: string, type: string, value: unknown): Promise<void> {

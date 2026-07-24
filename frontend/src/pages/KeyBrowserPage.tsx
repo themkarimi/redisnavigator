@@ -436,6 +436,10 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
   const [newItem, setNewItem] = useState('')
   const items: ListValue = (detail.value as ListValue) ?? []
   const elementEncodings = detail.elementEncodings ?? []
+  // The server refuses full-value overwrites past this size (see MAX_DETAIL_ELEMENTS in
+  // keys.routes.ts) — editing here would otherwise silently drop everything past what
+  // was fetched. Disable the add/delete controls that go through that overwrite path.
+  const isTruncated = !!detail.truncated
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['key', connectionId, keyName] })
@@ -468,6 +472,11 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
 
   return (
     <div className="flex flex-col h-full">
+      {isTruncated && (
+        <div className="px-4 py-2 text-xs text-amber-500 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
+          Showing first {items.length.toLocaleString()} of {(detail.total ?? items.length).toLocaleString()} elements — editing is disabled to avoid dropping the rest. Use the CLI for targeted changes.
+        </div>
+      )}
       <div className="flex-1 overflow-auto divide-y">
         {items.length === 0 && (
           <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
@@ -492,7 +501,7 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
               variant="ghost"
               className="h-7 w-7 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={() => handleDelete(i)}
-              disabled={updateMutation.isPending}
+              disabled={updateMutation.isPending || isTruncated}
             >
               <Trash2 className="w-3 h-3" />
             </Button>
@@ -508,14 +517,15 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           className="h-8 text-sm font-mono flex-1"
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd('tail')}
+          onKeyDown={(e) => e.key === 'Enter' && !isTruncated && handleAdd('tail')}
+          disabled={isTruncated}
         />
         <Button
           size="sm"
           variant="outline"
           className="h-8 shrink-0"
           onClick={() => handleAdd('head')}
-          disabled={updateMutation.isPending}
+          disabled={updateMutation.isPending || isTruncated}
           title="Prepend to head (LPUSH)"
         >
           <Plus className="w-3 h-3 mr-1" />
@@ -525,7 +535,7 @@ function ListEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
           size="sm"
           className="h-8 shrink-0"
           onClick={() => handleAdd('tail')}
-          disabled={updateMutation.isPending}
+          disabled={updateMutation.isPending || isTruncated}
           title="Append to tail (RPUSH)"
         >
           <Plus className="w-3 h-3 mr-1" />
@@ -544,6 +554,10 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
   const [newMember, setNewMember] = useState('')
   const members: SetValue = (detail.value as SetValue) ?? []
   const elementEncodings = detail.elementEncodings ?? []
+  // The server refuses full-value overwrites past this size (see MAX_DETAIL_ELEMENTS in
+  // keys.routes.ts) — editing here would otherwise silently drop everything past what
+  // was fetched. Disable the add/remove controls that go through that overwrite path.
+  const isTruncated = !!detail.truncated
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['key', connectionId, keyName] })
@@ -576,6 +590,11 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
 
   return (
     <div className="flex flex-col h-full">
+      {isTruncated && (
+        <div className="px-4 py-2 text-xs text-amber-500 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
+          Showing first {members.length.toLocaleString()} of {(detail.total ?? members.length).toLocaleString()} members — editing is disabled to avoid dropping the rest. Use the CLI for targeted changes.
+        </div>
+      )}
       <div className="flex-1 overflow-auto divide-y">
         {members.length === 0 && (
           <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
@@ -599,7 +618,7 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
               variant="ghost"
               className="h-7 w-7 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={() => handleRemove(member)}
-              disabled={updateMutation.isPending}
+              disabled={updateMutation.isPending || isTruncated}
             >
               <Trash2 className="w-3 h-3" />
             </Button>
@@ -616,8 +635,9 @@ function SetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProps
           onChange={(e) => setNewMember(e.target.value)}
           className="h-8 text-sm font-mono flex-1"
           required
+          disabled={isTruncated}
         />
-        <Button size="sm" type="submit" className="h-8 shrink-0" disabled={updateMutation.isPending}>
+        <Button size="sm" type="submit" className="h-8 shrink-0" disabled={updateMutation.isPending || isTruncated}>
           <Plus className="w-3 h-3 mr-1" />
           Add Member
         </Button>
@@ -640,6 +660,10 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
   const entries: ZSetValue = (detail.value as ZSetValue) ?? []
   const sorted = [...entries].sort((a, b) => a.score - b.score)
   const memberEncodings = detail.memberEncodings ?? []
+  // The server refuses full-value overwrites past this size (see MAX_DETAIL_ELEMENTS in
+  // keys.routes.ts) — editing here would otherwise silently drop everything past what
+  // was fetched. Disable the add/remove/score-edit controls that go through that overwrite path.
+  const isTruncated = !!detail.truncated
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['key', connectionId, keyName] })
@@ -684,6 +708,11 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
 
   return (
     <div className="flex flex-col h-full">
+      {isTruncated && (
+        <div className="px-4 py-2 text-xs text-amber-500 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
+          Showing first {entries.length.toLocaleString()} of {(detail.total ?? entries.length).toLocaleString()} members — editing is disabled to avoid dropping the rest. Use the CLI for targeted changes.
+        </div>
+      )}
       <div className="flex-1 overflow-auto">
         <Table>
           <TableHeader>
@@ -752,6 +781,7 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                       variant="ghost"
                       className="h-7 px-2"
                       onClick={() => { setEditingMember(member); setEditScore(String(score)) }}
+                      disabled={isTruncated}
                     >
                       Edit
                     </Button>
@@ -760,7 +790,7 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
                       variant="ghost"
                       className="h-7 px-2 text-destructive hover:text-destructive"
                       onClick={() => handleRemove(member)}
-                      disabled={updateMutation.isPending}
+                      disabled={updateMutation.isPending || isTruncated}
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
@@ -782,6 +812,7 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
           onChange={(e) => setNewMember(e.target.value)}
           className="h-8 text-sm font-mono flex-1"
           required
+          disabled={isTruncated}
         />
         <Input
           type="number"
@@ -791,8 +822,9 @@ function ZSetEditor({ connectionId, keyName, db, detail, onRefresh }: EditorProp
           onChange={(e) => setNewScore(e.target.value)}
           className="h-8 w-28 text-sm"
           required
+          disabled={isTruncated}
         />
-        <Button size="sm" type="submit" className="h-8 shrink-0" disabled={updateMutation.isPending}>
+        <Button size="sm" type="submit" className="h-8 shrink-0" disabled={updateMutation.isPending || isTruncated}>
           <Plus className="w-3 h-3 mr-1" />
           Add
         </Button>
@@ -1073,6 +1105,7 @@ function AddKeyDialog({ open, onOpenChange, connectionId, db, onCreated }: AddKe
     createKey.mutate(
       {
         connectionId,
+        db,
         key: keyName.trim(),
         type: keyType,
         value: buildValue(),
@@ -1711,7 +1744,7 @@ export default function KeyBrowserPage() {
     const confirmed = window.confirm(`Delete ${selectedKeys.size} selected key${selectedKeys.size > 1 ? 's' : ''}?`)
     if (!confirmed) return
     bulkDeleteMutation.mutate(
-      { connectionId, keys: [...selectedKeys] },
+      { connectionId, keys: [...selectedKeys], db },
       {
         onSuccess: () => {
           toast({ title: 'Deleted', description: `${selectedKeys.size} key${selectedKeys.size > 1 ? 's' : ''} deleted.` })
@@ -1722,7 +1755,7 @@ export default function KeyBrowserPage() {
         onError: (err) => toast({ title: 'Error', description: getApiErrorMessage(err, 'Bulk delete failed.'), variant: 'destructive' }),
       }
     )
-  }, [connectionId, selectedKeys, selectedKey, bulkDeleteMutation, toast])
+  }, [connectionId, selectedKeys, selectedKey, bulkDeleteMutation, toast, db])
 
   const handleBulkExport = useCallback(async () => {
     const selectedKeyList = keys.filter((k) => selectedKeys.has(k.key))

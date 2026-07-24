@@ -85,6 +85,17 @@ export default function PubSubPage() {
   const [messages, setMessages] = useState<PubSubMessage[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Keep latest subscription state in refs so the reconnect handler (registered
+  // once in the socket effect) always re-subscribes to the current set, not a stale one.
+  const activeSubscriptionsRef = useRef<string[]>([])
+  const activePatternsRef = useRef<string[]>([])
+  useEffect(() => {
+    activeSubscriptionsRef.current = activeSubscriptions
+  }, [activeSubscriptions])
+  useEffect(() => {
+    activePatternsRef.current = activePatterns
+  }, [activePatterns])
+
   // ---------------------------------------------------------------------------
   // Socket lifecycle
   // ---------------------------------------------------------------------------
@@ -100,7 +111,19 @@ export default function PubSubPage() {
 
     socketRef.current = socket
 
-    socket.on('connect', () => setIsConnected(true))
+    socket.on('connect', () => {
+      setIsConnected(true)
+      // socket.io reconnects transparently but the server has lost our subscriptions;
+      // re-issue them so messages keep flowing after a drop.
+      const channels = activeSubscriptionsRef.current
+      const patterns = activePatternsRef.current
+      if (channels.length > 0) {
+        socket.emit('subscribe', { connectionId, channels })
+      }
+      if (patterns.length > 0) {
+        socket.emit('psubscribe', { connectionId, patterns })
+      }
+    })
     socket.on('disconnect', () => setIsConnected(false))
 
     socket.on('message', (payload: { channel: string; message: string; timestamp?: string }) => {

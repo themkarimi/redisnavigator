@@ -18,10 +18,13 @@ export function requirePermission(...permissions: Permission[]) {
 
       const connectionId = (req.params.id || req.params.connectionId) as string | undefined;
 
-      // Check if user is SuperAdmin (global)
+      // Check if user is SuperAdmin (global). Global roles are rows with
+      // connectionId: null — a SUPERADMIN role scoped to one connection
+      // must never be treated as a global grant.
       const isSuperAdmin = await prisma.userConnectionRole.findFirst({
         where: {
           userId: req.user.userId,
+          connectionId: null,
           role: UserRole.SUPERADMIN,
         },
       });
@@ -36,10 +39,11 @@ export function requirePermission(...permissions: Permission[]) {
       }
 
       if (!connectionId) {
-        // For non-connection routes, check if admin
+        // For non-connection routes, check if global admin (connectionId: null)
         const adminRole = await prisma.userConnectionRole.findFirst({
           where: {
             userId: req.user.userId,
+            connectionId: null,
             role: { in: [UserRole.ADMIN] },
           },
         });
@@ -128,9 +132,13 @@ export function requireRole(...roles: UserRole[]) {
         return;
       }
 
+      // requireRole gates *global* actions (managing all users/groups/connections).
+      // A role scoped to a single connection (connectionId set) must never satisfy
+      // this check — only a genuine global grant (connectionId: null) counts.
       const userRole = await prisma.userConnectionRole.findFirst({
         where: {
           userId: req.user.userId,
+          connectionId: null,
           role: { in: roles },
         },
       });
@@ -145,4 +153,50 @@ export function requireRole(...roles: UserRole[]) {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+}
+
+/**
+ * True if the user may administer the given connection: they are a global
+ * SUPERADMIN, own the connection, hold an ADMIN/SUPERADMIN role on it directly,
+ * or via a group they belong to. Used to scope ADMIN-level mutations (assigning
+ * per-connection roles, attaching connections to groups) to connections the
+ * caller actually administers, rather than any connection in the system.
+ */
+export async function userAdministersConnection(
+  userId: string,
+  connectionId: string
+): Promise<boolean> {
+  const globalSuperAdmin = await prisma.userConnectionRole.findFirst({
+    where: { userId, connectionId: null, role: UserRole.SUPERADMIN },
+  });
+  if (globalSuperAdmin) return true;
+
+  const owns = await prisma.redisConnection.findFirst({
+    where: { id: connectionId, ownerId: userId },
+  });
+  if (owns) return true;
+
+  const directRole = await prisma.userConnectionRole.findUnique({
+    where: { userId_connectionId: { userId, connectionId } },
+  });
+  if (directRole && (directRole.role === UserRole.ADMIN || directRole.role === UserRole.SUPERADMIN)) {
+    return true;
+  }
+
+  const groupRole = await prisma.groupConnectionRole.findFirst({
+    where: {
+      connectionId,
+      role: { in: [UserRole.ADMIN, UserRole.SUPERADMIN] },
+      group: { members: { some: { userId } } },
+    },
+  });
+  return !!groupRole;
+}
+
+/** True if the user holds a global (connectionId: null) SUPERADMIN role. */
+export async function isGlobalSuperAdmin(userId: string): Promise<boolean> {
+  const role = await prisma.userConnectionRole.findFirst({
+    where: { userId, connectionId: null, role: UserRole.SUPERADMIN },
+  });
+  return !!role;
 }

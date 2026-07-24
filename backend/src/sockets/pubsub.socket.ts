@@ -32,7 +32,18 @@ async function getOrCreateSubscriber(socket: Socket, connectionId: string): Prom
   if (connection.useTLS) options.tls = {};
 
   const subscriber = new Redis(options);
-  await subscriber.connect();
+  // Attach before connect(): ioredis emits 'error' as a plain EventEmitter event, and an
+  // emit with zero listeners throws synchronously, crashing the whole process.
+  subscriber.on('error', (err) => {
+    logger.warn(`PubSub subscriber error for connection ${connectionId} (socket ${socket.id}):`, err.message);
+  });
+
+  try {
+    await subscriber.connect();
+  } catch (err) {
+    subscriber.disconnect();
+    throw err;
+  }
 
   subscriber.on('message', (channel, message) => {
     socket.emit('message', { channel, message, timestamp: new Date().toISOString() });
@@ -86,6 +97,7 @@ export function setupPubSubSocket(io: Server): void {
     });
 
     socket.on('publish', async ({ connectionId, channel, message }: { connectionId: string; channel: string; message: string }) => {
+      let publisher: Redis | null = null;
       try {
         const connection = await prisma.redisConnection.findFirst({
           where: { id: connectionId, isActive: true },
@@ -96,12 +108,18 @@ export function setupPubSubSocket(io: Server): void {
         if (connection.passwordEnc) options.password = decrypt(connection.passwordEnc);
         if (connection.useTLS) options.tls = {};
 
-        const publisher = new Redis(options);
+        publisher = new Redis(options);
+        publisher.on('error', (err) => {
+          logger.warn(`PubSub publisher error for connection ${connectionId}:`, err.message);
+        });
         const receivers = await publisher.publish(channel, message);
-        publisher.disconnect();
         socket.emit('published', { channel, message, receivers });
       } catch (err) {
         socket.emit('error', (err as Error).message);
+      } finally {
+        // Always tear the throwaway publisher down — otherwise a failed publish (bad
+        // creds, unreachable host) leaks the socket and retries forever.
+        publisher?.disconnect();
       }
     });
 

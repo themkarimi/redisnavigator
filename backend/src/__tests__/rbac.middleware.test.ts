@@ -111,6 +111,30 @@ describe('requirePermission', () => {
       });
     });
 
+    it('a SUPERADMIN role scoped to one connection does not grant global SuperAdmin on a different connection', async () => {
+      const req = makeReq('scoped-superadmin', { id: 'conn-other' });
+      const res = makeRes();
+      const next = makeNext();
+
+      // Real query behavior: only a connectionId: null row counts as global.
+      mockPrisma.userConnectionRole.findFirst.mockImplementation(async ({ where }) => {
+        if (where.connectionId === null) return null;
+        return { userId: 'scoped-superadmin', connectionId: 'conn-1', role: UserRole.SUPERADMIN };
+      });
+      mockPrisma.userConnectionRole.findUnique.mockResolvedValue(null);
+      mockPrisma.redisConnection.findFirst.mockResolvedValue(null);
+      mockPrisma.groupConnectionRole.findFirst.mockResolvedValue(null);
+
+      await requirePermission(Permission.MANAGE_USERS)(
+        req as ConnectionAccessRequest,
+        res as Response,
+        next
+      );
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('SUPERADMIN passes READ_KEY check on any connection', async () => {
       const req = makeReq('superadmin-user', { id: 'conn-42' });
       const res = makeRes();
@@ -498,6 +522,32 @@ describe('requireRole', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+  });
+
+  it('scopes the lookup to global (connectionId: null) roles only, so a per-connection ADMIN cannot pass', async () => {
+    const req: Partial<AuthenticatedRequest> = {
+      user: { userId: 'per-connection-admin', email: 'admin@test.com' },
+    };
+    const res = makeRes();
+    const next = makeNext();
+
+    // Simulate the real query behavior: only a row with connectionId: null matches.
+    mockPrisma.userConnectionRole.findFirst.mockImplementation(async ({ where }) => {
+      if (where.connectionId === null) return null;
+      return { userId: 'per-connection-admin', connectionId: 'conn-1', role: UserRole.ADMIN };
+    });
+
+    await requireRole(UserRole.ADMIN, UserRole.SUPERADMIN)(
+      req as AuthenticatedRequest,
+      res as Response,
+      next
+    );
+
+    expect(mockPrisma.userConnectionRole.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ connectionId: null }) })
+    );
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
   });
 });
 

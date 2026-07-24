@@ -34,6 +34,10 @@ function parseNodes(raw: unknown): NodeAddress[] {
 
 const connectionPool = new Map<string, Redis | Cluster>();
 const lastUsed = new Map<string, number>();
+// In-flight connect attempts per poolKey, so concurrent getRedisClient calls for the same
+// (connection, db) share one connect() instead of each racing to create their own client —
+// the losers would otherwise orphan a connected client that nothing ever tracks or closes.
+const pendingConnections = new Map<string, Promise<Redis | Cluster>>();
 
 // Idle pooled clients are evicted after this long with no use, so connections to
 // rarely-touched (connection, db) pairs don't accumulate for the process lifetime.
@@ -142,15 +146,47 @@ export async function getRedisClient(config: ConnectionConfig, db = 0): Promise<
     }
   }
 
+  const pending = pendingConnections.get(poolKey);
+  if (pending) return pending;
+
+  const connectPromise = (async () => {
+    const client = createClient(config, db);
+
+    client.on('error', (err) => {
+      logger.warn(`Redis client error for connection ${config.id} db ${db}:`, err.message);
+    });
+
+    try {
+      await client.connect();
+    } catch (err) {
+      // Never leave a half-connected client behind on failure — otherwise it sits in
+      // ioredis' reconnection loop, holding a socket and timers forever (zombie leak).
+      client.removeAllListeners('error');
+      client.disconnect();
+      throw err;
+    }
+
+    connectionPool.set(poolKey, client);
+    lastUsed.set(poolKey, Date.now());
+    return client;
+  })();
+
+  pendingConnections.set(poolKey, connectPromise);
+  try {
+    return await connectPromise;
+  } finally {
+    pendingConnections.delete(poolKey);
+  }
+}
+
+// A connected client outside the shared pool — never SELECTs/MULTIs/blocks on behalf of
+// every other user of this connection. Caller owns its lifecycle and must disconnect() it.
+export async function createEphemeralClient(config: ConnectionConfig, db = 0): Promise<Redis | Cluster> {
   const client = createClient(config, db);
-
-  client.on('error', (err) => {
-    logger.warn(`Redis client error for connection ${config.id} db ${db}:`, err.message);
+  client.on('error', () => {
+    // Swallow: caller disconnects promptly after one command, no long-lived listener needed.
   });
-
   await client.connect();
-  connectionPool.set(poolKey, client);
-  lastUsed.set(poolKey, Date.now());
   return client;
 }
 

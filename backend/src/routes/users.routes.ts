@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { prisma } from '../config/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { requireRole } from '../middleware/rbac.middleware';
+import { requireRole, isGlobalSuperAdmin, userAdministersConnection } from '../middleware/rbac.middleware';
 import { auditLog } from '../middleware/audit.middleware';
 import { AuthenticatedRequest } from '../types';
 import { AuditAction, Permission, UserRole } from '@prisma/client';
@@ -48,6 +48,16 @@ router.get('/', requireRole(UserRole.ADMIN, UserRole.SUPERADMIN), async (req: Au
 async function createUserHandler(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const data = createUserSchema.parse(req.body);
+
+      if (data.role === UserRole.SUPERADMIN && !(await isGlobalSuperAdmin(req.user!.userId))) {
+        res.status(403).json({ error: 'Only a SuperAdmin can grant the SuperAdmin role' });
+        return;
+      }
+
+      if (data.connectionId && !(await userAdministersConnection(req.user!.userId, data.connectionId))) {
+        res.status(403).json({ error: 'You do not administer this connection' });
+        return;
+      }
 
       const existing = await prisma.user.findUnique({ where: { email: data.email } });
       if (existing) {
@@ -105,6 +115,16 @@ router.patch(
       const userId = req.params.id as string;
       const connectionId = data.connectionId ?? null;
       const permissions = data.permissions || ROLE_PERMISSIONS[data.role];
+
+      if (data.role === UserRole.SUPERADMIN && !(await isGlobalSuperAdmin(req.user!.userId))) {
+        res.status(403).json({ error: 'Only a SuperAdmin can grant the SuperAdmin role' });
+        return;
+      }
+
+      if (connectionId !== null && !(await userAdministersConnection(req.user!.userId, connectionId))) {
+        res.status(403).json({ error: 'You do not administer this connection' });
+        return;
+      }
 
       if (connectionId === null) {
         const existing = await prisma.userConnectionRole.findFirst({

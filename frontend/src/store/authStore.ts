@@ -26,7 +26,10 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'redis-navigator-auth',
-      partialize: (state) => ({ user: state.user, accessToken: state.accessToken, isAuthenticated: state.isAuthenticated }),
+      // accessToken is intentionally excluded: persisting it to localStorage makes it
+      // XSS-exfiltratable. Keeping it memory-only is safe because PrivateRoute already
+      // re-derives it from the httpOnly refresh cookie on load when isAuthenticated is true.
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )
 );
