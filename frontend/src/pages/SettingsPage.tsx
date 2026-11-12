@@ -4,7 +4,7 @@ import { useThemeStore } from '@/store/themeStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { api } from '@/services/api'
 import { isAxiosError } from 'axios'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -19,6 +19,10 @@ export default function SettingsPage() {
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
   const scanCount = useSettingsStore((s) => s.scanCount)
   const setScanCount = useSettingsStore((s) => s.setScanCount)
+  const maskingPatterns = useSettingsStore((s) => s.maskingPatterns)
+  const addMaskingPattern = useSettingsStore((s) => s.addMaskingPattern)
+  const updateMaskingPattern = useSettingsStore((s) => s.updateMaskingPattern)
+  const removeMaskingPattern = useSettingsStore((s) => s.removeMaskingPattern)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -26,6 +30,32 @@ export default function SettingsPage() {
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
+
+  const [newPatternLabel, setNewPatternLabel] = useState('')
+  const [newPatternRegex, setNewPatternRegex] = useState('')
+  const [newPatternError, setNewPatternError] = useState<string | null>(null)
+
+  const handleAddPattern = () => {
+    setNewPatternError(null)
+    if (!newPatternRegex.trim()) {
+      setNewPatternError('Regex pattern is required.')
+      return
+    }
+    try {
+      new RegExp(newPatternRegex)
+    } catch {
+      setNewPatternError('Invalid regular expression.')
+      return
+    }
+    addMaskingPattern({
+      id: crypto.randomUUID(),
+      label: newPatternLabel.trim() || newPatternRegex.trim(),
+      pattern: newPatternRegex.trim(),
+      enabled: true,
+    })
+    setNewPatternLabel('')
+    setNewPatternRegex('')
+  }
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -40,6 +70,7 @@ export default function SettingsPage() {
         <TabsList className="mb-6">
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="redis">Redis</TabsTrigger>
+          <TabsTrigger value="privacy">Privacy</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="about">About</TabsTrigger>
         </TabsList>
@@ -101,6 +132,92 @@ export default function SettingsPage() {
                   }}
                   className="w-32"
                 />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Privacy tab */}
+        <TabsContent value="privacy">
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Masking</CardTitle>
+              <CardDescription>
+                Define regex patterns to mask sensitive values when viewing Redis keys. Matching
+                content will be replaced with <span className="font-mono">••••••••</span> in the
+                Key Browser. Editing a value always shows the real data.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {maskingPatterns.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No masking patterns defined. Add one below.
+                </p>
+              )}
+              {maskingPatterns.map((mp) => (
+                <div
+                  key={mp.id}
+                  className="flex items-center gap-3 p-3 border rounded-md bg-muted/30"
+                >
+                  <Switch
+                    checked={mp.enabled}
+                    onCheckedChange={(checked) => updateMaskingPattern(mp.id, { enabled: checked })}
+                    aria-label={`Toggle pattern ${mp.label}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{mp.label}</p>
+                    <p className="text-xs font-mono text-muted-foreground truncate">{mp.pattern}</p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => removeMaskingPattern(mp.id)}
+                    aria-label={`Remove pattern ${mp.label}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+
+              <div className="border-t pt-4 space-y-3">
+                <p className="text-sm font-medium">Add Pattern</p>
+                {newPatternError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{newPatternError}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="pattern-label">Label (optional)</Label>
+                  <Input
+                    id="pattern-label"
+                    placeholder="e.g. Bearer token"
+                    value={newPatternLabel}
+                    onChange={(e) => setNewPatternLabel(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pattern-regex">Regex Pattern</Label>
+                  <Input
+                    id="pattern-regex"
+                    placeholder="e.g. Bearer\s+\S+"
+                    value={newPatternRegex}
+                    onChange={(e) => {
+                      setNewPatternRegex(e.target.value)
+                      setNewPatternError(null)
+                    }}
+                    className="font-mono"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddPattern()}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    JavaScript regex syntax. Matched substrings will be replaced with{' '}
+                    <span className="font-mono">••••••••</span>.
+                  </p>
+                </div>
+                <Button size="sm" onClick={handleAddPattern}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Pattern
+                </Button>
               </div>
             </CardContent>
           </Card>
